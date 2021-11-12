@@ -128,7 +128,11 @@ async fn init_network_respond(opts: Opts, initialized_sender: oneshot::Sender<Re
 }
 
 async fn init_network(opts: Opts) -> Result<()> {
-    delete_exising_wifi_connect_ap_profile(&opts.ssid).await?;
+    let client = create_client().await?;
+
+    delete_exising_wifi_connect_ap_profile(&client, &opts.ssid).await?;
+
+    let _ = find_device(&client, &opts.interface)?;
 
     Ok(())
 }
@@ -261,16 +265,6 @@ fn ssid_to_string(ssid: Option<glib::Bytes>) -> Option<String> {
     std::str::from_utf8(&ssid?).ok().map(str::to_owned)
 }
 
-fn find_any_wifi_device(client: &Client) -> Result<DeviceWifi> {
-    for device in client.devices() {
-        if device.device_type() == DeviceType::Wifi && device.state() != DeviceState::Unmanaged {
-            return Ok(device.downcast().unwrap());
-        }
-    }
-
-    bail!("Failed to find a managed WiFi device")
-}
-
 async fn create_client() -> Result<Client> {
     let client = Client::new_async_future()
         .await
@@ -283,9 +277,7 @@ async fn create_client() -> Result<Client> {
     Ok(client)
 }
 
-async fn delete_exising_wifi_connect_ap_profile(ssid: &str) -> Result<()> {
-    let client = create_client().await?;
-
+async fn delete_exising_wifi_connect_ap_profile(client: &Client, ssid: &str) -> Result<()> {
     let connections = client.connections();
 
     for connection in connections {
@@ -332,4 +324,38 @@ fn is_wifi_connection(connection: &nm::Connection) -> bool {
     }
 
     false
+}
+
+pub fn find_device(client: &Client, interface: &Option<String>) -> Result<DeviceWifi> {
+    if let Some(ref interface) = *interface {
+        get_exact_device(client, interface)
+    } else {
+        find_any_wifi_device(client)
+    }
+}
+
+fn get_exact_device(client: &Client, interface: &str) -> Result<DeviceWifi> {
+    let device = client
+        .device_by_iface(interface)
+        .context(format!("Failed to find interface '{}'", interface))?;
+
+    if device.device_type() != DeviceType::Wifi {
+        bail!("Not a WiFi interface '{}'", interface);
+    }
+
+    if device.state() == DeviceState::Unmanaged {
+        bail!("Interface is not managed by NetworkManager '{}'", interface);
+    }
+
+    Ok(device.downcast().unwrap())
+}
+
+fn find_any_wifi_device(client: &Client) -> Result<DeviceWifi> {
+    for device in client.devices() {
+        if device.device_type() == DeviceType::Wifi && device.state() != DeviceState::Unmanaged {
+            return Ok(device.downcast().unwrap());
+        }
+    }
+
+    bail!("Failed to find a managed WiFi device")
 }

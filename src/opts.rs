@@ -6,4 +6,7 @@ const DEFAULT_SSID: &str = "WiFiConnect";
 pub struct Opts {
     #[clap(short, long, default_value = DEFAULT_SSID)]
     pub ssid: String,
+
+    #[clap(short, long)]
+    pub interface: Option<String>,
 }
