@@ -473,7 +473,8 @@ fn create_ap_connection(
     }
 
     let s_ip4 = nm::SettingIP4Config::new();
-    let address = nm::IPAddress::new(libc::AF_INET, address, 24).unwrap(); //context("Failed to parse address")?;
+    let address = nm::IPAddress::new(libc::AF_INET, address, 24)
+        .context("Failed to parse gateway address")?;
     s_ip4.add_address(&address);
     s_ip4.set_method(Some(&nm::SETTING_IP4_CONFIG_METHOD_MANUAL));
     connection.add_setting(&s_ip4);
