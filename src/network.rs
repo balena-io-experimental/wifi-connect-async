@@ -127,7 +127,7 @@ pub fn run_network_manager_loop(
 async fn init_network_respond(opts: Opts, initialized_sender: oneshot::Sender<Result<()>>) {
     let init_result = init_network(opts).await;
 
-    let _ = initialized_sender.send(init_result);
+    initialized_sender.send(init_result).ok();
 }
 
 async fn init_network(opts: Opts) -> Result<()> {
@@ -430,7 +430,7 @@ async fn create_portal(
             if let Some(result) = exit {
                 let sender = sender.borrow_mut().take();
                 if let Some(sender) = sender {
-                    let _ = sender.send(result);
+                    sender.send(result).ok();
                 }
             }
         });
