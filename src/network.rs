@@ -145,7 +145,7 @@ async fn init_network(opts: Opts) -> Result<()> {
 
     let _networks = access_points
         .iter()
-        .map(|ap| NetworkDetails::new(ssid_to_string(ap.ssid()).unwrap(), ap.strength()))
+        .map(|ap| NetworkDetails::new(ap_ssid(ap), ap.strength()))
         .collect::<Vec<_>>();
 
     let _portal_connection = Some(create_portal(&client, &device, &opts).await?);
@@ -229,7 +229,7 @@ async fn list_wifi_networks() -> Result<NetworkResponse> {
 
     let networks = access_points
         .iter()
-        .map(|ap| NetworkDetails::new(ssid_to_string(ap.ssid()).unwrap(), ap.strength()))
+        .map(|ap| NetworkDetails::new(ap_ssid(ap), ap.strength()))
         .collect::<Vec<_>>();
 
     Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
@@ -264,13 +264,13 @@ fn get_nearby_access_points(device: &DeviceWifi) -> Vec<AccessPoint> {
 
     // Purge access points with duplicate SSIDs
     let mut inserted = HashSet::new();
-    access_points.retain(|ap| inserted.insert(ssid_to_string(ap.ssid()).unwrap()));
+    access_points.retain(|ap| inserted.insert(ap_ssid(ap)));
 
     // Purge access points without SSID (hidden)
-    access_points.retain(|ap| !ssid_to_string(ap.ssid()).unwrap().is_empty());
+    access_points.retain(|ap| !ap_ssid(ap).is_empty());
 
     // Sort access points by signal strength first and then ssid
-    access_points.sort_by_key(|ap| (ap.strength(), ssid_to_string(ap.ssid()).unwrap()));
+    access_points.sort_by_key(|ap| (ap.strength(), ap_ssid(ap)));
     access_points.reverse();
 
     access_points
@@ -279,6 +279,10 @@ fn get_nearby_access_points(device: &DeviceWifi) -> Vec<AccessPoint> {
 fn ssid_to_string(ssid: Option<glib::Bytes>) -> Option<String> {
     // An access point SSID could be random bytes and not a UTF-8 encoded string
     std::str::from_utf8(&ssid?).ok().map(str::to_owned)
+}
+
+fn ap_ssid(ap: &AccessPoint) -> String {
+    ssid_to_string(ap.ssid()).unwrap()
 }
 
 async fn create_client() -> Result<Client> {
