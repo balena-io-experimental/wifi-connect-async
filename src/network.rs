@@ -436,11 +436,7 @@ async fn create_portal(
         });
     });
 
-    if let Err(err) = receiver.await? {
-        Err(err)
-    } else {
-        Ok(active_connection)
-    }
+    receiver.await?.and(Ok(active_connection))
 }
 
 fn create_ap_connection(
