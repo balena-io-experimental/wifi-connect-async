@@ -386,7 +386,7 @@ async fn create_portal(
     let connection = create_ap_connection(
         interface.as_str(),
         &opts.ssid,
-        crate::opts::DEFAULT_GATEWAY,
+        &opts.gateway,
         &opts.password.as_ref().map(|p| p as &str),
     )?;
 
