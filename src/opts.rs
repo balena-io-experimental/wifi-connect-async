@@ -10,4 +10,7 @@ pub struct Opts {
 
     #[clap(short, long)]
     pub interface: Option<String>,
+
+    #[clap(short, long)]
+    pub password: Option<String>,
 }

@@ -387,7 +387,7 @@ async fn create_portal(
         interface.as_str(),
         &opts.ssid,
         crate::opts::DEFAULT_GATEWAY,
-        &Some("12345678"),
+        &opts.password.as_ref().map(|p| p as &str),
     )?;
 
     let active_connection = client
