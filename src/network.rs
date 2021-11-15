@@ -297,7 +297,7 @@ async fn delete_exising_wifi_connect_ap_profile(client: &Client, ssid: &str) -> 
     let connections = client.connections();
 
     for connection in connections {
-        let c = connection.clone().upcast::<nm::Connection>();
+        let c = connection.clone().upcast::<Connection>();
         if is_access_point_connection(&c) && is_same_ssid(&c, ssid) {
             println!(
                 "Deleting already created by WiFi Connect access point connection profile: {:?}",
@@ -310,32 +310,32 @@ async fn delete_exising_wifi_connect_ap_profile(client: &Client, ssid: &str) -> 
     Ok(())
 }
 
-fn is_same_ssid(connection: &nm::Connection, ssid: &str) -> bool {
+fn is_same_ssid(connection: &Connection, ssid: &str) -> bool {
     connection_ssid_as_str(connection) == Some(ssid.to_string())
 }
 
-fn connection_ssid_as_str(connection: &nm::Connection) -> Option<String> {
+fn connection_ssid_as_str(connection: &Connection) -> Option<String> {
     ssid_to_string(connection.setting_wireless()?.ssid())
 }
 
-fn is_access_point_connection(connection: &nm::Connection) -> bool {
+fn is_access_point_connection(connection: &Connection) -> bool {
     is_wifi_connection(connection) && is_access_point_mode(connection)
 }
 
-fn is_access_point_mode(connection: &nm::Connection) -> bool {
+fn is_access_point_mode(connection: &Connection) -> bool {
     if let Some(setting) = connection.setting_wireless() {
         if let Some(mode) = setting.mode() {
-            return mode == *nm::SETTING_WIRELESS_MODE_AP;
+            return mode == *SETTING_WIRELESS_MODE_AP;
         }
     }
 
     false
 }
 
-fn is_wifi_connection(connection: &nm::Connection) -> bool {
+fn is_wifi_connection(connection: &Connection) -> bool {
     if let Some(setting) = connection.setting_connection() {
         if let Some(connection_type) = setting.connection_type() {
-            return connection_type == *nm::SETTING_WIRELESS_SETTING_NAME;
+            return connection_type == *SETTING_WIRELESS_SETTING_NAME;
         }
     }
 
@@ -380,7 +380,7 @@ async fn create_portal(
     client: &Client,
     device: &DeviceWifi,
     opts: &Opts,
-) -> Result<nm::ActiveConnection> {
+) -> Result<ActiveConnection> {
     let interface = device.clone().upcast::<Device>().iface().unwrap();
 
     let connection = create_ap_connection(
@@ -402,15 +402,15 @@ async fn create_portal(
         let sender = sender.clone();
         let active_connection = active_connection.clone();
         spawn_local(async move {
-            let state = unsafe { nm::ActiveConnectionState::from_glib(state as _) };
+            let state = unsafe { ActiveConnectionState::from_glib(state as _) };
             println!("Active connection state: {:?}", state);
 
             let exit = match state {
-                nm::ActiveConnectionState::Activated => {
+                ActiveConnectionState::Activated => {
                     println!("Successfully activated");
                     Some(Ok(()))
                 }
-                nm::ActiveConnectionState::Deactivated => {
+                ActiveConnectionState::Deactivated => {
                     println!("Connection deactivated");
                     if let Some(remote_connection) = active_connection.connection() {
                         Some(
@@ -448,35 +448,35 @@ fn create_ap_connection(
     ssid: &str,
     address: &str,
     passphrase: &Option<&str>,
-) -> Result<nm::SimpleConnection> {
-    let connection = nm::SimpleConnection::new();
+) -> Result<SimpleConnection> {
+    let connection = SimpleConnection::new();
 
-    let s_connection = nm::SettingConnection::new();
-    s_connection.set_type(Some(&nm::SETTING_WIRELESS_SETTING_NAME));
+    let s_connection = SettingConnection::new();
+    s_connection.set_type(Some(&SETTING_WIRELESS_SETTING_NAME));
     s_connection.set_id(Some(ssid));
     s_connection.set_autoconnect(false);
     s_connection.set_interface_name(Some(interface));
     connection.add_setting(&s_connection);
 
-    let s_wireless = nm::SettingWireless::new();
+    let s_wireless = SettingWireless::new();
     s_wireless.set_ssid(Some(&(ssid.as_bytes().into())));
     s_wireless.set_band(Some("bg"));
     s_wireless.set_hidden(false);
-    s_wireless.set_mode(Some(&nm::SETTING_WIRELESS_MODE_AP));
+    s_wireless.set_mode(Some(&SETTING_WIRELESS_MODE_AP));
     connection.add_setting(&s_wireless);
 
     if let Some(password) = passphrase {
-        let s_wireless_security = nm::SettingWirelessSecurity::new();
+        let s_wireless_security = SettingWirelessSecurity::new();
         s_wireless_security.set_key_mgmt(Some("wpa-psk"));
         s_wireless_security.set_psk(Some(password));
         connection.add_setting(&s_wireless_security);
     }
 
-    let s_ip4 = nm::SettingIP4Config::new();
-    let address = nm::IPAddress::new(libc::AF_INET, address, 24)
-        .context("Failed to parse gateway address")?;
+    let s_ip4 = SettingIP4Config::new();
+    let address =
+        IPAddress::new(libc::AF_INET, address, 24).context("Failed to parse gateway address")?;
     s_ip4.add_address(&address);
-    s_ip4.set_method(Some(&nm::SETTING_IP4_CONFIG_METHOD_MANUAL));
+    s_ip4.set_method(Some(&SETTING_IP4_CONFIG_METHOD_MANUAL));
     connection.add_setting(&s_ip4);
 
     Ok(connection)
