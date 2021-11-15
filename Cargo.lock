@@ -1089,6 +1089,7 @@ dependencies = [
  "axum",
  "clap",
  "glib",
+ "libc",
  "nm",
  "serde",
  "tokio",

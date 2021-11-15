@@ -6,6 +6,7 @@ description = "Easy WiFi setup for Linux devices from your mobile phone or lapto
 edition = "2018"
 
 [dependencies]
+libc = "0.2"
 anyhow = "1"
 clap = "3.0.0-beta.5"
 axum = "0.2"

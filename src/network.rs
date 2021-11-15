@@ -2,10 +2,13 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use tokio::sync::oneshot;
 
+use glib::translate::FromGlib;
 use glib::{MainContext, MainLoop};
 
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::future::Future;
+use std::rc::Rc;
 
 use serde::Serialize;
 
@@ -132,7 +135,20 @@ async fn init_network(opts: Opts) -> Result<()> {
 
     delete_exising_wifi_connect_ap_profile(&client, &opts.ssid).await?;
 
-    let _ = find_device(&client, &opts.interface)?;
+    let device = find_device(&client, &opts.interface)?;
+
+    println!("Device: {:?}", device);
+
+    scan_wifi(&device).await?;
+
+    let access_points = get_nearby_access_points(&device);
+
+    let _networks = access_points
+        .iter()
+        .map(|ap| NetworkDetails::new(ssid_to_string(ap.ssid()).unwrap(), ap.strength()))
+        .collect::<Vec<_>>();
+
+    let _portal_connection = Some(create_portal(&client, &device, &opts).await?);
 
     Ok(())
 }
@@ -358,4 +374,113 @@ fn find_any_wifi_device(client: &Client) -> Result<DeviceWifi> {
     }
 
     bail!("Failed to find a managed WiFi device")
+}
+
+async fn create_portal(
+    client: &Client,
+    device: &DeviceWifi,
+    opts: &Opts,
+) -> Result<nm::ActiveConnection> {
+    let interface = device.clone().upcast::<Device>().iface().unwrap();
+
+    let connection = create_ap_connection(
+        interface.as_str(),
+        &opts.ssid,
+        crate::opts::DEFAULT_GATEWAY,
+        &Some("12345678"),
+    )?;
+
+    let active_connection = client
+        .add_and_activate_connection_async_future(Some(&connection), device, None)
+        .await
+        .context("Failed to add and activate connection")?;
+
+    let (sender, receiver) = oneshot::channel::<Result<()>>();
+    let sender = Rc::new(RefCell::new(Some(sender)));
+
+    active_connection.connect_state_changed(move |active_connection, state, _| {
+        let sender = sender.clone();
+        let active_connection = active_connection.clone();
+        spawn_local(async move {
+            let state = unsafe { nm::ActiveConnectionState::from_glib(state as _) };
+            println!("Active connection state: {:?}", state);
+
+            let exit = match state {
+                nm::ActiveConnectionState::Activated => {
+                    println!("Successfully activated");
+                    Some(Ok(()))
+                }
+                nm::ActiveConnectionState::Deactivated => {
+                    println!("Connection deactivated");
+                    if let Some(remote_connection) = active_connection.connection() {
+                        Some(
+                            remote_connection
+                                .delete_async_future()
+                                .await
+                                .context("Failed to delete captive portal connection"),
+                        )
+                    } else {
+                        Some(Err(anyhow!(
+                            "Failed to get remote connection from active connection"
+                        )))
+                    }
+                }
+                _ => None,
+            };
+            if let Some(result) = exit {
+                let sender = sender.borrow_mut().take();
+                if let Some(sender) = sender {
+                    let _ = sender.send(result);
+                }
+            }
+        });
+    });
+
+    if let Err(err) = receiver.await? {
+        Err(err)
+    } else {
+        Ok(active_connection)
+    }
+}
+
+fn create_ap_connection(
+    interface: &str,
+    ssid: &str,
+    address: &str,
+    passphrase: &Option<&str>,
+) -> Result<nm::SimpleConnection> {
+    let connection = nm::SimpleConnection::new();
+
+    let s_connection = nm::SettingConnection::new();
+    s_connection.set_type(Some(&nm::SETTING_WIRELESS_SETTING_NAME));
+    s_connection.set_id(Some(ssid));
+    s_connection.set_autoconnect(false);
+    s_connection.set_interface_name(Some(interface));
+    connection.add_setting(&s_connection);
+
+    let s_wireless = nm::SettingWireless::new();
+    s_wireless.set_ssid(Some(&(ssid.as_bytes().into())));
+    s_wireless.set_band(Some("bg"));
+    s_wireless.set_hidden(false);
+    s_wireless.set_mode(Some(&nm::SETTING_WIRELESS_MODE_AP));
+    connection.add_setting(&s_wireless);
+
+    if let Some(password) = passphrase {
+        let s_wireless_security = nm::SettingWirelessSecurity::new();
+        s_wireless_security.set_key_mgmt(Some("wpa-psk"));
+        s_wireless_security.set_psk(Some(password));
+        connection.add_setting(&s_wireless_security);
+    }
+
+    let s_ip4 = nm::SettingIP4Config::new();
+    let address = nm::IPAddress::new(libc::AF_INET, address, 24).unwrap(); //context("Failed to parse address")?;
+    s_ip4.add_address(&address);
+    s_ip4.set_method(Some(&nm::SETTING_IP4_CONFIG_METHOD_MANUAL));
+    connection.add_setting(&s_ip4);
+
+    Ok(connection)
+}
+
+pub fn spawn_local<F: Future<Output = ()> + 'static>(f: F) {
+    glib::MainContext::ref_thread_default().spawn_local(f);
 }
