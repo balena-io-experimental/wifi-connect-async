@@ -25,6 +25,7 @@ pub enum NetworkCommand {
     CheckConnectivity,
     ListConnections,
     ListWiFiNetworks,
+    Shutdown,
 }
 
 pub struct NetworkRequest {
@@ -42,6 +43,7 @@ pub enum NetworkResponse {
     CheckConnectivity(Connectivity),
     ListConnections(ConnectionList),
     ListWiFiNetworks(NetworkList),
+    Shutdown(Shutdown),
 }
 
 #[derive(Serialize)]
@@ -101,6 +103,9 @@ impl NetworkDetails {
     }
 }
 
+#[derive(Serialize)]
+pub struct Shutdown;
+
 pub fn create_channel() -> (glib::Sender<NetworkRequest>, glib::Receiver<NetworkRequest>) {
     MainContext::channel(glib::PRIORITY_DEFAULT)
 }
@@ -159,6 +164,7 @@ fn dispatch_command_requests(command_request: NetworkRequest) -> glib::Continue 
         NetworkCommand::CheckConnectivity => spawn(check_connectivity(), responder),
         NetworkCommand::ListConnections => spawn(list_connections(), responder),
         NetworkCommand::ListWiFiNetworks => spawn(list_wifi_networks(), responder),
+        NetworkCommand::Shutdown => spawn(shutdown(), responder),
     };
     glib::Continue(true)
 }
@@ -235,6 +241,10 @@ async fn list_wifi_networks() -> Result<NetworkResponse> {
     Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
         networks,
     )))
+}
+
+async fn shutdown() -> Result<NetworkResponse> {
+    Ok(NetworkResponse::Shutdown(Shutdown))
 }
 
 async fn scan_wifi(device: &DeviceWifi) -> Result<()> {
