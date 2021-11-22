@@ -104,7 +104,15 @@ impl NetworkDetails {
 }
 
 #[derive(Serialize)]
-pub struct Shutdown;
+pub struct Shutdown {
+    pub shutdown: &'static str,
+}
+
+impl Shutdown {
+    fn new(shutdown: &'static str) -> Self {
+        Shutdown { shutdown }
+    }
+}
 
 pub fn create_channel() -> (glib::Sender<NetworkRequest>, glib::Receiver<NetworkRequest>) {
     MainContext::channel(glib::PRIORITY_DEFAULT)
@@ -244,7 +252,7 @@ async fn list_wifi_networks() -> Result<NetworkResponse> {
 }
 
 async fn shutdown() -> Result<NetworkResponse> {
-    Ok(NetworkResponse::Shutdown(Shutdown))
+    Ok(NetworkResponse::Shutdown(Shutdown::new("ok")))
 }
 
 async fn scan_wifi(device: &DeviceWifi) -> Result<()> {
