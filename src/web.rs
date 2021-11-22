@@ -55,14 +55,15 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
         .route("/shutdown", get(shutdown))
         .layer(AddExtensionLayer::new(shared_state));
 
-    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
-        .serve(app.into_make_service())
-        .with_graceful_shutdown(async {
-            shutdown_rx.await.ok();
-            println!("Shut down")
-        })
-        .await
-        .unwrap();
+    let server =
+        axum::Server::bind(&"0.0.0.0:3000".parse().unwrap()).serve(app.into_make_service());
+
+    let graceful = server.with_graceful_shutdown(async {
+        shutdown_rx.await.ok();
+        println!("Shut down")
+    });
+
+    graceful.await.unwrap();
 }
 
 async fn usage() -> &'static str {
