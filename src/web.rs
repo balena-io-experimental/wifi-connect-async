@@ -53,6 +53,7 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
         .route("/list-connections", get(list_connections))
         .route("/list-wifi-networks", get(list_wifi_networks))
         .route("/shutdown", get(shutdown))
+        .route("/stop", get(stop))
         .layer(AddExtensionLayer::new(shared_state));
 
     let server =
@@ -98,6 +99,12 @@ async fn shutdown(mut state: extract::Extension<Arc<State>>) -> impl IntoRespons
     response
 }
 
+async fn stop(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
+    send_command(&state.0, NetworkCommand::Stop)
+        .await
+        .into_response()
+}
+
 async fn issue_shutdwon(state: &mut Arc<State>) {
     if let Some(shutdown_tx) = state.shutdown_opt.lock().unwrap().take() {
         shutdown_tx.send(()).ok();
@@ -112,6 +119,7 @@ async fn send_command(state: &Arc<State>, command: NetworkCommand) -> AppRespons
         NetworkCommand::ListConnections => "list actions",
         NetworkCommand::ListWiFiNetworks => "list WiFi networks",
         NetworkCommand::Shutdown => "shutdown",
+        NetworkCommand::Stop => "stop",
     };
 
     state
@@ -164,6 +172,7 @@ impl IntoResponse for AppResponse {
                 NetworkResponse::Shutdown(shutdown) => {
                     (StatusCode::OK, Json(shutdown)).into_response()
                 }
+                NetworkResponse::Stop(stop) => (StatusCode::OK, Json(stop)).into_response(),
             },
         }
     }
