@@ -280,11 +280,15 @@ async fn list_connections() -> Result<NetworkResponse> {
 }
 
 async fn list_wifi_networks() -> Result<NetworkResponse> {
+    Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
+        get_global_networks()?,
+    )))
+}
+
+fn get_global_networks() -> Result<Vec<NetworkDetails>> {
     GLOBAL.with(|global| {
         if let Some(ref state) = *global.borrow() {
-            Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
-                state.networks.clone(),
-            )))
+            Ok(state.networks.clone())
         } else {
             Err(anyhow!("Network thread not yet initialized"))
         }
