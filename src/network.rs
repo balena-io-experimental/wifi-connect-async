@@ -198,7 +198,11 @@ async fn init_network(opts: Opts) -> Result<()> {
         .map(|ap| NetworkDetails::new(ap_ssid(ap), ap.strength()))
         .collect::<Vec<_>>();
 
-    let portal_connection = Some(create_portal(&client, &device, &opts).await?);
+    let portal_connection = Some(
+        create_portal(&client, &device, &opts)
+            .await
+            .context("Failed to create captive portal")?,
+    );
 
     GLOBAL.with(|global| {
         let state = NetworkState::new(device, networks, portal_connection);
