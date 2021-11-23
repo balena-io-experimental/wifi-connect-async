@@ -128,21 +128,24 @@ impl Stop {
 }
 
 struct NetworkState {
+    client: Client,
     _device: DeviceWifi,
     networks: Vec<NetworkDetails>,
-    _portal_connection: Option<ActiveConnection>,
+    portal_connection: Option<ActiveConnection>,
 }
 
 impl NetworkState {
     fn new(
+        client: Client,
         _device: DeviceWifi,
         networks: Vec<NetworkDetails>,
-        _portal_connection: Option<ActiveConnection>,
+        portal_connection: Option<ActiveConnection>,
     ) -> Self {
         NetworkState {
+            client,
             _device,
             networks,
-            _portal_connection,
+            portal_connection,
         }
     }
 }
@@ -205,7 +208,7 @@ async fn init_network(opts: Opts) -> Result<()> {
     );
 
     GLOBAL.with(|global| {
-        let state = NetworkState::new(device, networks, portal_connection);
+        let state = NetworkState::new(client, device, networks, portal_connection);
         *global.borrow_mut() = Some(state);
     });
 
@@ -295,15 +298,43 @@ fn get_global_networks() -> Result<Vec<NetworkDetails>> {
     })
 }
 
+fn get_global_portal_connection() -> Result<Option<ActiveConnection>> {
+    GLOBAL.with(|global| {
+        if let Some(ref state) = *global.borrow() {
+            Ok(state.portal_connection.clone())
+        } else {
+            Err(anyhow!("Network thread not yet initialized"))
+        }
+    })
+}
+
+fn get_global_client() -> Result<Client> {
+    GLOBAL.with(|global| {
+        if let Some(ref state) = *global.borrow() {
+            Ok(state.client.clone())
+        } else {
+            Err(anyhow!("Network thread not yet initialized"))
+        }
+    })
+}
+
 async fn shutdown() -> Result<NetworkResponse> {
     Ok(NetworkResponse::Shutdown(Shutdown::new("ok")))
 }
 
 async fn stop() -> Result<NetworkResponse> {
+    let client = get_global_client()?; //create_client().await?;
+
+    if let Some(active_connection) = get_global_portal_connection()? {
+        stop_portal(&client, &active_connection).await?;
+    }
+
     Ok(NetworkResponse::Stop(Stop::new("ok")))
 }
 
 async fn scan_wifi(device: &DeviceWifi) -> Result<()> {
+    println!("Scanning for networks...");
+
     let prescan = utils_get_timestamp_msec();
 
     device
@@ -480,13 +511,32 @@ async fn create_portal(
     }
 }
 
+async fn stop_portal(client: &Client, active_connection: &ActiveConnection) -> Result<()> {
+    client
+        .deactivate_connection_async_future(active_connection)
+        .await?;
+
+    finalize_active_connection_state(active_connection).await?;
+
+    if let Some(remote_connection) = active_connection.connection() {
+        remote_connection
+            .delete_async_future()
+            .await
+            .context("Failed to delete captive portal connection profile")?;
+    }
+
+    Ok(())
+}
+
 async fn finalize_active_connection_state(
     active_connection: &ActiveConnection,
 ) -> Result<ActiveConnectionState> {
+    println!("Monitoring active connection state change...");
+
     let (sender, receiver) = oneshot::channel::<ActiveConnectionState>();
     let sender = Rc::new(RefCell::new(Some(sender)));
 
-    active_connection.connect_state_changed(move |_, state, _| {
+    let handler_id = active_connection.connect_state_changed(move |_, state, _| {
         let sender = sender.clone();
         spawn_local(async move {
             let state = unsafe { ActiveConnectionState::from_glib(state as _) };
@@ -504,9 +554,13 @@ async fn finalize_active_connection_state(
         });
     });
 
-    receiver
+    let state = receiver
         .await
-        .context("Failed to receive active connection state change")
+        .context("Failed to receive active connection state change")?;
+
+    glib::signal_handler_disconnect(active_connection, handler_id);
+
+    Ok(state)
 }
 
 fn create_ap_connection(
