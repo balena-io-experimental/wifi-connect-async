@@ -488,12 +488,8 @@ async fn finalize_active_connection(
             println!("Active connection state: {:?}", state);
 
             let exit = match state {
-                ActiveConnectionState::Activated => {
-                    println!("Active connection activated");
-                    Some(Ok(ActiveConnectionState::Activated))
-                }
+                ActiveConnectionState::Activated => Some(Ok(ActiveConnectionState::Activated)),
                 ActiveConnectionState::Deactivated => {
-                    println!("Active connection deactivated");
                     if let Some(remote_connection) = active_connection.connection() {
                         Some(
                             remote_connection
@@ -507,18 +503,6 @@ async fn finalize_active_connection(
                             "Failed to get remote connection from active connection"
                         )))
                     }
-                }
-                ActiveConnectionState::Activating => {
-                    println!("Active connection activating");
-                    None
-                }
-                ActiveConnectionState::Deactivating => {
-                    println!("Active connection deactivating");
-                    None
-                }
-                ActiveConnectionState::Unknown => {
-                    println!("Active connection state Unknown");
-                    None
                 }
                 _ => None,
             };
