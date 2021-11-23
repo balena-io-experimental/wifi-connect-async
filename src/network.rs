@@ -93,7 +93,7 @@ impl NetworkList {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct NetworkDetails {
     pub ssid: String,
     pub strength: u8,
@@ -125,6 +125,30 @@ impl Stop {
     fn new(stop: &'static str) -> Self {
         Stop { stop }
     }
+}
+
+struct NetworkState {
+    _device: DeviceWifi,
+    networks: Vec<NetworkDetails>,
+    _portal_connection: Option<ActiveConnection>,
+}
+
+impl NetworkState {
+    fn new(
+        _device: DeviceWifi,
+        networks: Vec<NetworkDetails>,
+        _portal_connection: Option<ActiveConnection>,
+    ) -> Self {
+        NetworkState {
+            _device,
+            networks,
+            _portal_connection,
+        }
+    }
+}
+
+thread_local! {
+    static GLOBAL: RefCell<Option<NetworkState>> = RefCell::new(None);
 }
 
 pub fn create_channel() -> (glib::Sender<NetworkRequest>, glib::Receiver<NetworkRequest>) {
@@ -169,12 +193,17 @@ async fn init_network(opts: Opts) -> Result<()> {
 
     let access_points = get_nearby_access_points(&device);
 
-    let _networks = access_points
+    let networks = access_points
         .iter()
         .map(|ap| NetworkDetails::new(ap_ssid(ap), ap.strength()))
         .collect::<Vec<_>>();
 
-    let _portal_connection = Some(create_portal(&client, &device, &opts).await?);
+    let portal_connection = Some(create_portal(&client, &device, &opts).await?);
+
+    GLOBAL.with(|global| {
+        let state = NetworkState::new(device, networks, portal_connection);
+        *global.borrow_mut() = Some(state);
+    });
 
     Ok(())
 }
@@ -247,22 +276,15 @@ async fn list_connections() -> Result<NetworkResponse> {
 }
 
 async fn list_wifi_networks() -> Result<NetworkResponse> {
-    let client = create_client().await?;
-
-    let device = find_any_wifi_device(&client)?;
-
-    scan_wifi(&device).await?;
-
-    let access_points = get_nearby_access_points(&device);
-
-    let networks = access_points
-        .iter()
-        .map(|ap| NetworkDetails::new(ap_ssid(ap), ap.strength()))
-        .collect::<Vec<_>>();
-
-    Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
-        networks,
-    )))
+    GLOBAL.with(|global| {
+        if let Some(ref state) = *global.borrow() {
+            Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
+                state.networks.clone(),
+            )))
+        } else {
+            Err(anyhow!("Network thread not yet initialized"))
+        }
+    })
 }
 
 async fn shutdown() -> Result<NetworkResponse> {
