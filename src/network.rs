@@ -465,57 +465,48 @@ async fn create_portal(
         .await
         .context("Failed to add and activate connection")?;
 
-    let state = finalize_active_connection(&active_connection).await?;
+    let state = finalize_active_connection_state(&active_connection).await?;
 
     if state == ActiveConnectionState::Deactivated {
+        if let Some(remote_connection) = active_connection.connection() {
+            remote_connection
+                .delete_async_future()
+                .await
+                .context("Failed to delete captive portal connection after failing to activate")?;
+        }
         Err(anyhow!("Failed to activate captive portal connection"))
     } else {
         Ok(active_connection)
     }
 }
 
-async fn finalize_active_connection(
+async fn finalize_active_connection_state(
     active_connection: &ActiveConnection,
 ) -> Result<ActiveConnectionState> {
-    let (sender, receiver) = oneshot::channel::<Result<ActiveConnectionState>>();
+    let (sender, receiver) = oneshot::channel::<ActiveConnectionState>();
     let sender = Rc::new(RefCell::new(Some(sender)));
 
-    active_connection.connect_state_changed(move |active_connection, state, _| {
+    active_connection.connect_state_changed(move |_, state, _| {
         let sender = sender.clone();
-        let active_connection = active_connection.clone();
         spawn_local(async move {
             let state = unsafe { ActiveConnectionState::from_glib(state as _) };
             println!("Active connection state: {:?}", state);
 
             let exit = match state {
-                ActiveConnectionState::Activated => Some(Ok(ActiveConnectionState::Activated)),
-                ActiveConnectionState::Deactivated => {
-                    if let Some(remote_connection) = active_connection.connection() {
-                        Some(
-                            remote_connection
-                                .delete_async_future()
-                                .await
-                                .context("Failed to delete active connection")
-                                .map(|_| ActiveConnectionState::Deactivated),
-                        )
-                    } else {
-                        Some(Err(anyhow!(
-                            "Failed to get remote connection from active connection"
-                        )))
-                    }
-                }
+                ActiveConnectionState::Activated => Some(ActiveConnectionState::Activated),
+                ActiveConnectionState::Deactivated => Some(ActiveConnectionState::Deactivated),
                 _ => None,
             };
             if let Some(result) = exit {
-                let sender = sender.borrow_mut().take();
-                if let Some(sender) = sender {
-                    sender.send(result).ok();
-                }
+                let sender = sender.borrow_mut().take().unwrap();
+                sender.send(result).ok();
             }
         });
     });
 
-    receiver.await?
+    receiver
+        .await
+        .context("Failed to receive active connection state change")
 }
 
 fn create_ap_connection(
