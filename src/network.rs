@@ -477,11 +477,11 @@ async fn create_portal(
 
             let exit = match state {
                 ActiveConnectionState::Activated => {
-                    println!("Successfully activated");
+                    println!("Active connection activated");
                     Some(Ok(()))
                 }
                 ActiveConnectionState::Deactivated => {
-                    println!("Connection deactivated");
+                    println!("Active connection deactivated");
                     if let Some(remote_connection) = active_connection.connection() {
                         Some(
                             remote_connection
@@ -494,6 +494,18 @@ async fn create_portal(
                             "Failed to get remote connection from active connection"
                         )))
                     }
+                }
+                ActiveConnectionState::Activating => {
+                    println!("Active connection activating");
+                    None
+                }
+                ActiveConnectionState::Deactivating => {
+                    println!("Active connection deactivating");
+                    None
+                }
+                ActiveConnectionState::Unknown => {
+                    println!("Active connection state Unknown");
+                    None
                 }
                 _ => None,
             };
