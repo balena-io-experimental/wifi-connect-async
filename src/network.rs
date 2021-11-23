@@ -465,7 +465,19 @@ async fn create_portal(
         .await
         .context("Failed to add and activate connection")?;
 
-    let (sender, receiver) = oneshot::channel::<Result<()>>();
+    let state = finalize_active_connection(&active_connection).await?;
+
+    if state == ActiveConnectionState::Deactivated {
+        Err(anyhow!("Failed to activate captive portal connection"))
+    } else {
+        Ok(active_connection)
+    }
+}
+
+async fn finalize_active_connection(
+    active_connection: &ActiveConnection,
+) -> Result<ActiveConnectionState> {
+    let (sender, receiver) = oneshot::channel::<Result<ActiveConnectionState>>();
     let sender = Rc::new(RefCell::new(Some(sender)));
 
     active_connection.connect_state_changed(move |active_connection, state, _| {
@@ -478,7 +490,7 @@ async fn create_portal(
             let exit = match state {
                 ActiveConnectionState::Activated => {
                     println!("Active connection activated");
-                    Some(Ok(()))
+                    Some(Ok(ActiveConnectionState::Activated))
                 }
                 ActiveConnectionState::Deactivated => {
                     println!("Active connection deactivated");
@@ -487,7 +499,8 @@ async fn create_portal(
                             remote_connection
                                 .delete_async_future()
                                 .await
-                                .context("Failed to delete captive portal connection"),
+                                .context("Failed to delete active connection")
+                                .map(|_| ActiveConnectionState::Deactivated),
                         )
                     } else {
                         Some(Err(anyhow!(
@@ -518,7 +531,7 @@ async fn create_portal(
         });
     });
 
-    receiver.await?.and(Ok(active_connection))
+    receiver.await?
 }
 
 fn create_ap_connection(
