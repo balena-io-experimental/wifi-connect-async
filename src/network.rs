@@ -192,7 +192,9 @@ async fn init_network(opts: Opts) -> Result<()> {
 
     let device = find_device(&client, &opts.interface)?;
 
-    println!("Device: {:?}", device);
+    let interface = device.clone().upcast::<Device>().iface().unwrap();
+
+    println!("Interface: {}", interface);
 
     scan_wifi(&device).await?;
 
