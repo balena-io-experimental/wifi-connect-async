@@ -44,7 +44,7 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
     let shared_state = Arc::new(State {
-        glib_sender,
+        glib_sender: glib_sender.clone(),
         shutdown_opt: Mutex::new(Some(shutdown_tx)),
     });
 
@@ -60,12 +60,15 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
     let server =
         axum::Server::bind(&"0.0.0.0:3000".parse().unwrap()).serve(app.into_make_service());
 
-    let graceful = server.with_graceful_shutdown(shutdown_signal(shutdown_rx));
+    let graceful = server.with_graceful_shutdown(shutdown_signal(shutdown_rx, glib_sender));
 
     graceful.await.unwrap();
 }
 
-async fn shutdown_signal(shutdown_rx: oneshot::Receiver<()>) {
+async fn shutdown_signal(
+    shutdown_rx: oneshot::Receiver<()>,
+    glib_sender: glib::Sender<NetworkRequest>,
+) {
     let mut interrupt = signal(SignalKind::interrupt()).unwrap();
     let mut terminate = signal(SignalKind::terminate()).unwrap();
     let mut quit = signal(SignalKind::quit()).unwrap();
@@ -79,6 +82,8 @@ async fn shutdown_signal(shutdown_rx: oneshot::Receiver<()>) {
         _ = hangup.recv() => println!("SIGHUP received"),
     }
 
+    send_command(&glib_sender, NetworkCommand::Stop).await;
+
     println!("Shut down")
 }
 
@@ -87,25 +92,25 @@ async fn usage() -> &'static str {
 }
 
 async fn check_connectivity(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
-    send_command(&state.0, NetworkCommand::CheckConnectivity)
+    send_command(&state.0.glib_sender, NetworkCommand::CheckConnectivity)
         .await
         .into_response()
 }
 
 async fn list_connections(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
-    send_command(&state.0, NetworkCommand::ListConnections)
+    send_command(&state.0.glib_sender, NetworkCommand::ListConnections)
         .await
         .into_response()
 }
 
 async fn list_wifi_networks(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
-    send_command(&state.0, NetworkCommand::ListWiFiNetworks)
+    send_command(&state.0.glib_sender, NetworkCommand::ListWiFiNetworks)
         .await
         .into_response()
 }
 
 async fn shutdown(mut state: extract::Extension<Arc<State>>) -> impl IntoResponse {
-    let response = send_command(&state.0, NetworkCommand::Shutdown)
+    let response = send_command(&state.0.glib_sender, NetworkCommand::Shutdown)
         .await
         .into_response();
 
@@ -115,7 +120,7 @@ async fn shutdown(mut state: extract::Extension<Arc<State>>) -> impl IntoRespons
 }
 
 async fn stop(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
-    send_command(&state.0, NetworkCommand::Stop)
+    send_command(&state.0.glib_sender, NetworkCommand::Stop)
         .await
         .into_response()
 }
@@ -126,7 +131,10 @@ async fn issue_shutdwon(state: &mut Arc<State>) {
     }
 }
 
-async fn send_command(state: &Arc<State>, command: NetworkCommand) -> AppResponse {
+async fn send_command(
+    glib_sender: &glib::Sender<NetworkRequest>,
+    command: NetworkCommand,
+) -> AppResponse {
     let (responder, receiver) = oneshot::channel();
 
     let action = match command {
@@ -137,8 +145,7 @@ async fn send_command(state: &Arc<State>, command: NetworkCommand) -> AppRespons
         NetworkCommand::Stop => "stop",
     };
 
-    state
-        .glib_sender
+    glib_sender
         .send(NetworkRequest::new(responder, command))
         .unwrap();
 
