@@ -18,6 +18,8 @@ use nm::*;
 
 const WIFI_SCAN_TIMEOUT_SECONDS: usize = 45;
 
+const NETWORK_THREAD_NOT_INITIALIZED: &str = "Network thread not yet initialized";
+
 type TokioResponder = oneshot::Sender<Result<NetworkResponse>>;
 
 #[derive(Debug)]
@@ -293,7 +295,7 @@ fn get_global_networks() -> Result<Vec<NetworkDetails>> {
         if let Some(ref state) = *global.borrow() {
             Ok(state.networks.clone())
         } else {
-            Err(anyhow!("Network thread not yet initialized"))
+            Err(anyhow!(NETWORK_THREAD_NOT_INITIALIZED))
         }
     })
 }
@@ -303,7 +305,7 @@ fn get_global_portal_connection() -> Result<Option<ActiveConnection>> {
         if let Some(ref state) = *global.borrow() {
             Ok(state.portal_connection.clone())
         } else {
-            Err(anyhow!("Network thread not yet initialized"))
+            Err(anyhow!(NETWORK_THREAD_NOT_INITIALIZED))
         }
     })
 }
@@ -313,7 +315,7 @@ fn get_global_client() -> Result<Client> {
         if let Some(ref state) = *global.borrow() {
             Ok(state.client.clone())
         } else {
-            Err(anyhow!("Network thread not yet initialized"))
+            Err(anyhow!(NETWORK_THREAD_NOT_INITIALIZED))
         }
     })
 }
