@@ -62,6 +62,8 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
 
     let graceful = server.with_graceful_shutdown(shutdown_signal(shutdown_rx, glib_sender));
 
+    println!("Web server starting...");
+
     graceful.await.unwrap();
 }
 
@@ -82,9 +84,11 @@ async fn shutdown_signal(
         _ = hangup.recv() => println!("SIGHUP received"),
     }
 
+    println!("Shutting down...");
+
     send_command(&glib_sender, NetworkCommand::Stop).await;
 
-    println!("Shut down")
+    println!("Quit.");
 }
 
 async fn usage() -> &'static str {

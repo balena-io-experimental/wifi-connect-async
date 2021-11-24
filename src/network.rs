@@ -216,6 +216,8 @@ async fn init_network(opts: Opts) -> Result<()> {
         *global.borrow_mut() = Some(state);
     });
 
+    println!("Network initilized");
+
     Ok(())
 }
 
@@ -535,7 +537,7 @@ async fn stop_portal(client: &Client, active_connection: &ActiveConnection) -> R
 async fn finalize_active_connection_state(
     active_connection: &ActiveConnection,
 ) -> Result<ActiveConnectionState> {
-    println!("Monitoring active connection state change...");
+    println!("Monitoring connection state...");
 
     let (sender, receiver) = oneshot::channel::<ActiveConnectionState>();
     let sender = Rc::new(RefCell::new(Some(sender)));
@@ -544,7 +546,7 @@ async fn finalize_active_connection_state(
         let sender = sender.clone();
         spawn_local(async move {
             let state = unsafe { ActiveConnectionState::from_glib(state as _) };
-            println!("Active connection state: {:?}", state);
+            println!("Connection: {:?}", state);
 
             let exit = match state {
                 ActiveConnectionState::Activated => Some(ActiveConnectionState::Activated),
