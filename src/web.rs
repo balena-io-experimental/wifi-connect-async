@@ -12,6 +12,7 @@ use axum::{
     AddExtensionLayer, Json, Router,
 };
 
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::oneshot;
 
 use serde::Serialize;
@@ -59,12 +60,26 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
     let server =
         axum::Server::bind(&"0.0.0.0:3000".parse().unwrap()).serve(app.into_make_service());
 
-    let graceful = server.with_graceful_shutdown(async {
-        shutdown_rx.await.ok();
-        println!("Shut down")
-    });
+    let graceful = server.with_graceful_shutdown(shutdown_signal(shutdown_rx));
 
     graceful.await.unwrap();
+}
+
+async fn shutdown_signal(shutdown_rx: oneshot::Receiver<()>) {
+    let mut interrupt = signal(SignalKind::interrupt()).unwrap();
+    let mut terminate = signal(SignalKind::terminate()).unwrap();
+    let mut quit = signal(SignalKind::quit()).unwrap();
+    let mut hangup = signal(SignalKind::hangup()).unwrap();
+
+    tokio::select! {
+        _ = shutdown_rx => {},
+        _ = interrupt.recv() => println!("SIGINT received"),
+        _ = terminate.recv() => println!("SIGTERM received"),
+        _ = quit.recv() => println!("SIGQUIT received"),
+        _ = hangup.recv() => println!("SIGHUP received"),
+    }
+
+    println!("Shut down")
 }
 
 async fn usage() -> &'static str {
