@@ -246,7 +246,7 @@ async fn execute_and_respond(
 }
 
 async fn check_connectivity() -> Result<NetworkResponse> {
-    let client = create_client().await?;
+    let client = get_global_client()?;
 
     let connectivity = client
         .check_connectivity_async_future()
@@ -259,7 +259,7 @@ async fn check_connectivity() -> Result<NetworkResponse> {
 }
 
 async fn list_connections() -> Result<NetworkResponse> {
-    let client = create_client().await?;
+    let client = get_global_client()?;
 
     let all_connections: Vec<_> = client
         .connections()
@@ -325,7 +325,7 @@ async fn shutdown() -> Result<NetworkResponse> {
 }
 
 async fn stop() -> Result<NetworkResponse> {
-    let client = get_global_client()?; //create_client().await?;
+    let client = get_global_client()?;
 
     if let Some(active_connection) = get_global_portal_connection()? {
         stop_portal(&client, &active_connection).await?;
