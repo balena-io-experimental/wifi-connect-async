@@ -9,7 +9,7 @@ edition = "2021"
 libc = "0.2"
 anyhow = "1"
 clap = { version = "3", features = ["derive"] }
-axum = "0.2"
+axum = "0.4"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 nm = { git = "https://github.com/balena-io-modules/libnm-rs.git" }

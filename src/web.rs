@@ -1,14 +1,12 @@
-use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 
 use axum::{
-    body::{Bytes, Full},
     extract,
-    handler::get,
-    http::{Response, StatusCode},
-    response::IntoResponse,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::get,
     AddExtensionLayer, Json, Router,
 };
 
@@ -175,10 +173,7 @@ async fn receive_network_thread_response(
 }
 
 impl IntoResponse for AppResponse {
-    type Body = Full<Bytes>;
-    type BodyError = Infallible;
-
-    fn into_response(self) -> Response<Self::Body> {
+    fn into_response(self) -> Response {
         match self {
             AppResponse::Error(err) => {
                 let errors: Vec<String> = err.chain().map(|e| format!("{}", e)).collect();
