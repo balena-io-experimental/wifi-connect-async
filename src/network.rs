@@ -253,7 +253,7 @@ async fn check_connectivity() -> Result<NetworkResponse> {
     let client = get_global_client()?;
 
     let connectivity = client
-        .check_connectivity_async_future()
+        .check_connectivity_future()
         .await
         .context("Failed to execute check connectivity")?;
 
@@ -344,7 +344,7 @@ async fn scan_wifi(device: &DeviceWifi) -> Result<()> {
     let prescan = utils_get_timestamp_msec();
 
     device
-        .request_scan_async_future()
+        .request_scan_future()
         .await
         .context("Failed to request WiFi scan")?;
 
@@ -389,7 +389,7 @@ fn ap_ssid(ap: &AccessPoint) -> String {
 }
 
 async fn create_client() -> Result<Client> {
-    let client = Client::new_async_future()
+    let client = Client::new_future()
         .await
         .context("Failed to create NetworkManager client")?;
 
@@ -410,7 +410,7 @@ async fn delete_exising_wifi_connect_ap_profile(client: &Client, ssid: &str) -> 
                 "Deleting already created by WiFi Connect access point connection profile: {:?}",
                 ssid,
             );
-            connection.delete_async_future().await?;
+            connection.delete_future().await?;
         }
     }
 
@@ -498,7 +498,7 @@ async fn create_portal(
     )?;
 
     let active_connection = client
-        .add_and_activate_connection_async_future(Some(&connection), device, None)
+        .add_and_activate_connection_future(Some(&connection), device, None)
         .await
         .context("Failed to add and activate connection")?;
 
@@ -507,7 +507,7 @@ async fn create_portal(
     if state == ActiveConnectionState::Deactivated {
         if let Some(remote_connection) = active_connection.connection() {
             remote_connection
-                .delete_async_future()
+                .delete_future()
                 .await
                 .context("Failed to delete captive portal connection after failing to activate")?;
         }
@@ -519,14 +519,14 @@ async fn create_portal(
 
 async fn stop_portal(client: &Client, active_connection: &ActiveConnection) -> Result<()> {
     client
-        .deactivate_connection_async_future(active_connection)
+        .deactivate_connection_future(active_connection)
         .await?;
 
     finalize_active_connection_state(active_connection).await?;
 
     if let Some(remote_connection) = active_connection.connection() {
         remote_connection
-            .delete_async_future()
+            .delete_future()
             .await
             .context("Failed to delete captive portal connection profile")?;
     }
