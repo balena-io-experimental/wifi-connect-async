@@ -3,7 +3,7 @@ name = "wifi-connect"
 version = "5.0.0"
 authors = ["majorz"]
 description = "Easy WiFi setup for Linux devices from your mobile phone or laptop"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 libc = "0.2"
