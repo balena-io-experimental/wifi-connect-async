@@ -12,6 +12,9 @@ clap = { version = "3", features = ["derive"] }
 axum = "0.4"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
+neli = { version = "0.6", features = ["async"] }
+macaddr = "1"
+byteorder = "1"
 nm = { git = "https://github.com/balena-io-modules/libnm-rs.git" }
 glib = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 

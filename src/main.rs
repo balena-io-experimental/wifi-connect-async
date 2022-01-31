@@ -1,6 +1,7 @@
 mod network;
 mod opts;
 mod web;
+mod nl80211;
 
 use std::thread;
 

@@ -16,6 +16,7 @@ use tokio::sync::oneshot;
 use serde::Serialize;
 
 use crate::network::{NetworkCommand, NetworkRequest, NetworkResponse};
+use crate::nl80211;
 
 pub enum AppResponse {
     Network(NetworkResponse),
@@ -53,6 +54,7 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
         .route("/list-wifi-networks", get(list_wifi_networks))
         .route("/shutdown", get(shutdown))
         .route("/stop", get(stop))
+        .route("/scan", get(scan))
         .layer(AddExtensionLayer::new(shared_state));
 
     let server =
@@ -125,6 +127,11 @@ async fn stop(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
     send_command(&state.0.glib_sender, NetworkCommand::Stop)
         .await
         .into_response()
+}
+
+async fn scan(_: extract::Extension<Arc<State>>) -> impl IntoResponse {
+    let stations = nl80211::scan("wlan0").await.unwrap();
+    (StatusCode::OK, Json(stations)).into_response()
 }
 
 async fn issue_shutdwon(state: &mut Arc<State>) {
