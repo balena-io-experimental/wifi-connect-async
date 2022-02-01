@@ -34,7 +34,7 @@ impl AppErrors {
     }
 }
 
-struct State {
+struct MainState {
     glib_sender: glib::Sender<NetworkRequest>,
     shutdown_opt: Mutex<Option<oneshot::Sender<()>>>,
 }
@@ -42,7 +42,7 @@ struct State {
 pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
-    let shared_state = Arc::new(State {
+    let shared_state = Arc::new(MainState {
         glib_sender: glib_sender.clone(),
         shutdown_opt: Mutex::new(Some(shutdown_tx)),
     });
@@ -95,25 +95,25 @@ async fn usage() -> &'static str {
     "Use /check-connectivity or /list-connections\n"
 }
 
-async fn check_connectivity(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
+async fn check_connectivity(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
     send_command(&state.0.glib_sender, NetworkCommand::CheckConnectivity)
         .await
         .into_response()
 }
 
-async fn list_connections(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
+async fn list_connections(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
     send_command(&state.0.glib_sender, NetworkCommand::ListConnections)
         .await
         .into_response()
 }
 
-async fn list_wifi_networks(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
+async fn list_wifi_networks(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
     send_command(&state.0.glib_sender, NetworkCommand::ListWiFiNetworks)
         .await
         .into_response()
 }
 
-async fn shutdown(mut state: extract::Extension<Arc<State>>) -> impl IntoResponse {
+async fn shutdown(mut state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
     let response = send_command(&state.0.glib_sender, NetworkCommand::Shutdown)
         .await
         .into_response();
@@ -123,18 +123,18 @@ async fn shutdown(mut state: extract::Extension<Arc<State>>) -> impl IntoRespons
     response
 }
 
-async fn stop(state: extract::Extension<Arc<State>>) -> impl IntoResponse {
+async fn stop(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
     send_command(&state.0.glib_sender, NetworkCommand::Stop)
         .await
         .into_response()
 }
 
-async fn scan(_: extract::Extension<Arc<State>>) -> impl IntoResponse {
+async fn scan(_: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
     let stations = nl80211::scan("wlan0").await.unwrap();
     (StatusCode::OK, Json(stations)).into_response()
 }
 
-async fn issue_shutdwon(state: &mut Arc<State>) {
+async fn issue_shutdwon(state: &mut Arc<MainState>) {
     if let Some(shutdown_tx) = state.shutdown_opt.lock().unwrap().take() {
         shutdown_tx.send(()).ok();
     }
