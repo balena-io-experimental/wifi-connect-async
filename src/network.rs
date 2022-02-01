@@ -86,24 +86,24 @@ impl ConnectionDetails {
 
 #[derive(Serialize)]
 pub struct NetworkList {
-    pub networks: Vec<NetworkDetails>,
+    pub stations: Vec<Station>,
 }
 
 impl NetworkList {
-    fn new(networks: Vec<NetworkDetails>) -> Self {
-        NetworkList { networks }
+    fn new(stations: Vec<Station>) -> Self {
+        NetworkList { stations }
     }
 }
 
-#[derive(Serialize, Clone)]
-pub struct NetworkDetails {
+#[derive(Serialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Station {
     pub ssid: String,
-    pub strength: u8,
+    pub quality: u8,
 }
 
-impl NetworkDetails {
-    fn new(ssid: String, strength: u8) -> Self {
-        NetworkDetails { ssid, strength }
+impl Station {
+    fn new(ssid: String, quality: u8) -> Self {
+        Station { ssid, quality }
     }
 }
 
@@ -132,7 +132,7 @@ impl Stop {
 struct NetworkState {
     client: Client,
     _device: DeviceWifi,
-    networks: Vec<NetworkDetails>,
+    stations: Vec<Station>,
     portal_connection: Option<ActiveConnection>,
 }
 
@@ -140,13 +140,13 @@ impl NetworkState {
     fn new(
         client: Client,
         _device: DeviceWifi,
-        networks: Vec<NetworkDetails>,
+        stations: Vec<Station>,
         portal_connection: Option<ActiveConnection>,
     ) -> Self {
         NetworkState {
             client,
             _device,
-            networks,
+            stations,
             portal_connection,
         }
     }
@@ -200,9 +200,9 @@ async fn init_network(opts: Opts) -> Result<()> {
 
     let access_points = get_nearby_access_points(&device);
 
-    let networks = access_points
+    let stations = access_points
         .iter()
-        .map(|ap| NetworkDetails::new(ap_ssid(ap), ap.strength()))
+        .map(|ap| Station::new(ap_ssid(ap), ap.strength()))
         .collect::<Vec<_>>();
 
     let portal_connection = Some(
@@ -212,7 +212,7 @@ async fn init_network(opts: Opts) -> Result<()> {
     );
 
     GLOBAL.with(|global| {
-        let state = NetworkState::new(client, device, networks, portal_connection);
+        let state = NetworkState::new(client, device, stations, portal_connection);
         *global.borrow_mut() = Some(state);
     });
 
@@ -290,14 +290,14 @@ async fn list_connections() -> Result<NetworkResponse> {
 
 async fn list_wifi_networks() -> Result<NetworkResponse> {
     Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
-        get_global_networks()?,
+        get_global_stations()?,
     )))
 }
 
-fn get_global_networks() -> Result<Vec<NetworkDetails>> {
+fn get_global_stations() -> Result<Vec<Station>> {
     GLOBAL.with(|global| {
         if let Some(ref state) = *global.borrow() {
-            Ok(state.networks.clone())
+            Ok(state.stations.clone())
         } else {
             Err(anyhow!(NETWORK_THREAD_NOT_INITIALIZED))
         }

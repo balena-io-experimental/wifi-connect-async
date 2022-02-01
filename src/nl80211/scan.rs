@@ -1,4 +1,3 @@
-use std::hash::Hash;
 use std::io::Cursor;
 use std::io::Read;
 
@@ -16,21 +15,14 @@ use neli::socket::tokio::NlSocket;
 use neli::socket::NlSocketHandle;
 use neli::types::{Buffer, GenlBuffer};
 
-use serde::Serialize;
-
+use crate::network::Station;
+use crate::nl80211::consts::NL80211_SCAN_FLAG_AP;
 use crate::nl80211::enums::{Nl80211Attr, Nl80211Bss, Nl80211Cmd};
 use crate::nl80211::interface::Interface;
-use crate::nl80211::consts::NL80211_SCAN_FLAG_AP;
 
 const NL80211_FAMILY_NAME: &str = "nl80211";
 const SCAN_MULTICAST_NAME: &str = "scan";
 const WLAN_EID_SSID: u8 = 0;
-
-#[derive(Serialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Station {
-    pub ssid: String,
-    pub quality: u8,
-}
 
 pub async fn scan(interface: &str) -> Result<Vec<Station>> {
     let (mut socket, nl_id) = create_main_socket()?;
@@ -189,13 +181,8 @@ fn create_trigger_scan_message(
 ) -> Result<Nlmsghdr<u16, Genlmsghdr<Nl80211Cmd, Nl80211Attr>>> {
     let iface_attr = Nlattr::new(false, true, Nl80211Attr::Ifindex, iface_index)
         .context("Faled to create interface index attribute")?;
-    let scan_attr = Nlattr::new(
-        false,
-        true,
-        Nl80211Attr::ScanFlags,
-        NL80211_SCAN_FLAG_AP,
-    )
-    .context("Failed to create scan flags attribute")?;
+    let scan_attr = Nlattr::new(false, true, Nl80211Attr::ScanFlags, NL80211_SCAN_FLAG_AP)
+        .context("Failed to create scan flags attribute")?;
     let genl_msghdr = Genlmsghdr::new(
         Nl80211Cmd::TriggerScan,
         1,
