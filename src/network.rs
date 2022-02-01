@@ -365,16 +365,16 @@ fn get_nearby_access_points(device: &DeviceWifi) -> Vec<AccessPoint> {
     // Purge non-string SSIDs
     access_points.retain(|ap| ssid_to_string(ap.ssid()).is_some());
 
+    // Sort access points by signal strength first and then ssid
+    access_points.sort_by_key(|ap| (ap.strength(), ap_ssid(ap)));
+    access_points.reverse();
+
     // Purge access points with duplicate SSIDs
     let mut inserted = HashSet::new();
     access_points.retain(|ap| inserted.insert(ap_ssid(ap)));
 
     // Purge access points without SSID (hidden)
     access_points.retain(|ap| !ap_ssid(ap).is_empty());
-
-    // Sort access points by signal strength first and then ssid
-    access_points.sort_by_key(|ap| (ap.strength(), ap_ssid(ap)));
-    access_points.reverse();
 
     access_points
 }
