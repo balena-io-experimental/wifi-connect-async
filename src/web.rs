@@ -158,24 +158,30 @@ async fn send_command(
         .send(NetworkRequest::new(responder, command))
         .unwrap();
 
-    receive_network_thread_response(receiver, action).await
+    receive_network_thread_response(receiver, action)
+        .await
+        .into()
 }
 
 async fn receive_network_thread_response(
     receiver: oneshot::Receiver<Result<NetworkResponse>>,
     action: &str,
-) -> AppResponse {
+) -> Result<NetworkResponse> {
     let received = receiver
         .await
         .context("Failed to receive network thread response");
 
-    let result = received
+    received
         .and_then(|r| r)
-        .or_else(|e| Err(e).context(format!("Failed to {}", action)));
+        .or_else(|e| Err(e).context(format!("Failed to {}", action)))
+}
 
-    match result {
-        Ok(network_response) => AppResponse::Network(network_response),
-        Err(err) => AppResponse::Error(err),
+impl From<Result<NetworkResponse>> for AppResponse {
+    fn from(result: Result<NetworkResponse>) -> Self {
+        match result {
+            Ok(network_response) => AppResponse::Network(network_response),
+            Err(err) => AppResponse::Error(err),
+        }
     }
 }
 
