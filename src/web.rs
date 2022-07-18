@@ -7,7 +7,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
-    AddExtensionLayer, Json, Router,
+    Extension, Json, Router,
 };
 
 use tokio::signal::unix::{signal, SignalKind};
@@ -55,7 +55,7 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
         .route("/shutdown", get(shutdown))
         .route("/stop", get(stop))
         .route("/scan", get(scan))
-        .layer(AddExtensionLayer::new(shared_state));
+        .layer(Extension(shared_state));
 
     let server =
         axum::Server::bind(&"0.0.0.0:3000".parse().unwrap()).serve(app.into_make_service());
