@@ -1,3 +1,9 @@
+#![allow(
+    clippy::use_self,
+    clippy::wildcard_imports,
+    clippy::cast_possible_truncation
+)]
+
 use neli::neli_enum;
 
 use crate::nl80211::consts::*;
