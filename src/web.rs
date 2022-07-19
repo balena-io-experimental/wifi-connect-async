@@ -15,11 +15,11 @@ use tokio::sync::oneshot;
 
 use serde::Serialize;
 
-use crate::network::{NetworkCommand, NetworkRequest, NetworkResponse};
+use crate::network::{Command, CommandRequest, CommandResponce};
 use crate::nl80211;
 
 pub enum AppResponse {
-    Network(NetworkResponse),
+    Network(CommandResponce),
     Error(anyhow::Error),
 }
 
@@ -35,11 +35,11 @@ impl AppErrors {
 }
 
 struct MainState {
-    glib_sender: glib::Sender<NetworkRequest>,
+    glib_sender: glib::Sender<CommandRequest>,
     shutdown_opt: Mutex<Option<oneshot::Sender<()>>>,
 }
 
-pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
+pub async fn run_web_loop(glib_sender: glib::Sender<CommandRequest>) {
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
     let shared_state = Arc::new(MainState {
@@ -69,7 +69,7 @@ pub async fn run_web_loop(glib_sender: glib::Sender<NetworkRequest>) {
 
 async fn shutdown_signal(
     shutdown_rx: oneshot::Receiver<()>,
-    glib_sender: glib::Sender<NetworkRequest>,
+    glib_sender: glib::Sender<CommandRequest>,
 ) {
     let mut interrupt = signal(SignalKind::interrupt()).unwrap();
     let mut terminate = signal(SignalKind::terminate()).unwrap();
@@ -86,7 +86,7 @@ async fn shutdown_signal(
 
     println!("Shutting down...");
 
-    send_command(&glib_sender, NetworkCommand::Stop).await;
+    send_command(&glib_sender, Command::Stop).await;
 
     println!("Quit.");
 }
@@ -96,25 +96,25 @@ async fn usage() -> &'static str {
 }
 
 async fn check_connectivity(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, NetworkCommand::CheckConnectivity)
+    send_command(&state.0.glib_sender, Command::CheckConnectivity)
         .await
         .into_response()
 }
 
 async fn list_connections(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, NetworkCommand::ListConnections)
+    send_command(&state.0.glib_sender, Command::ListConnections)
         .await
         .into_response()
 }
 
 async fn list_wifi_networks(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, NetworkCommand::ListWiFiNetworks)
+    send_command(&state.0.glib_sender, Command::ListWiFiNetworks)
         .await
         .into_response()
 }
 
 async fn shutdown(mut state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    let response = send_command(&state.0.glib_sender, NetworkCommand::Shutdown)
+    let response = send_command(&state.0.glib_sender, Command::Shutdown)
         .await
         .into_response();
 
@@ -124,7 +124,7 @@ async fn shutdown(mut state: extract::Extension<Arc<MainState>>) -> impl IntoRes
 }
 
 async fn stop(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, NetworkCommand::Stop)
+    send_command(&state.0.glib_sender, Command::Stop)
         .await
         .into_response()
 }
@@ -140,22 +140,19 @@ async fn issue_shutdwon(state: &mut Arc<MainState>) {
     }
 }
 
-async fn send_command(
-    glib_sender: &glib::Sender<NetworkRequest>,
-    command: NetworkCommand,
-) -> AppResponse {
+async fn send_command(glib_sender: &glib::Sender<CommandRequest>, command: Command) -> AppResponse {
     let (responder, receiver) = oneshot::channel();
 
     let action = match command {
-        NetworkCommand::CheckConnectivity => "check connectivity",
-        NetworkCommand::ListConnections => "list actions",
-        NetworkCommand::ListWiFiNetworks => "list WiFi networks",
-        NetworkCommand::Shutdown => "shutdown",
-        NetworkCommand::Stop => "stop",
+        Command::CheckConnectivity => "check connectivity",
+        Command::ListConnections => "list actions",
+        Command::ListWiFiNetworks => "list WiFi networks",
+        Command::Shutdown => "shutdown",
+        Command::Stop => "stop",
     };
 
     glib_sender
-        .send(NetworkRequest::new(responder, command))
+        .send(CommandRequest::new(responder, command))
         .unwrap();
 
     receive_network_thread_response(receiver, action)
@@ -164,9 +161,9 @@ async fn send_command(
 }
 
 async fn receive_network_thread_response(
-    receiver: oneshot::Receiver<Result<NetworkResponse>>,
+    receiver: oneshot::Receiver<Result<CommandResponce>>,
     action: &str,
-) -> Result<NetworkResponse> {
+) -> Result<CommandResponce> {
     let result = receiver
         .await
         .context("Failed to receive network thread response");
@@ -176,8 +173,8 @@ async fn receive_network_thread_response(
         .or_else(|e| Err(e).context(format!("Failed to {}", action)))
 }
 
-impl From<Result<NetworkResponse>> for AppResponse {
-    fn from(result: Result<NetworkResponse>) -> Self {
+impl From<Result<CommandResponce>> for AppResponse {
+    fn from(result: Result<CommandResponce>) -> Self {
         match result {
             Ok(network_response) => Self::Network(network_response),
             Err(err) => Self::Error(err),
@@ -194,19 +191,19 @@ impl IntoResponse for AppResponse {
                 (StatusCode::INTERNAL_SERVER_ERROR, Json(app_errors)).into_response()
             }
             AppResponse::Network(network_response) => match network_response {
-                NetworkResponse::ListConnections(connections) => {
+                CommandResponce::ListConnections(connections) => {
                     (StatusCode::OK, Json(connections)).into_response()
                 }
-                NetworkResponse::CheckConnectivity(connectivity) => {
+                CommandResponce::CheckConnectivity(connectivity) => {
                     (StatusCode::OK, Json(connectivity)).into_response()
                 }
-                NetworkResponse::ListWiFiNetworks(networks) => {
+                CommandResponce::ListWiFiNetworks(networks) => {
                     (StatusCode::OK, Json(networks)).into_response()
                 }
-                NetworkResponse::Shutdown(shutdown) => {
+                CommandResponce::Shutdown(shutdown) => {
                     (StatusCode::OK, Json(shutdown)).into_response()
                 }
-                NetworkResponse::Stop(stop) => (StatusCode::OK, Json(stop)).into_response(),
+                CommandResponce::Stop(stop) => (StatusCode::OK, Json(stop)).into_response(),
             },
         }
     }

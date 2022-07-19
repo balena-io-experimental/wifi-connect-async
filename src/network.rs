@@ -26,10 +26,10 @@ const WIFI_SCAN_TIMEOUT_SECONDS: usize = 45;
 
 const NETWORK_THREAD_NOT_INITIALIZED: &str = "Network thread not yet initialized";
 
-type TokioResponder = oneshot::Sender<Result<NetworkResponse>>;
+type TokioResponder = oneshot::Sender<Result<CommandResponce>>;
 
 #[derive(Debug)]
-pub enum NetworkCommand {
+pub enum Command {
     CheckConnectivity,
     ListConnections,
     ListWiFiNetworks,
@@ -37,18 +37,18 @@ pub enum NetworkCommand {
     Stop,
 }
 
-pub struct NetworkRequest {
+pub struct CommandRequest {
     responder: TokioResponder,
-    command: NetworkCommand,
+    command: Command,
 }
 
-impl NetworkRequest {
-    pub fn new(responder: TokioResponder, command: NetworkCommand) -> Self {
+impl CommandRequest {
+    pub fn new(responder: TokioResponder, command: Command) -> Self {
         Self { responder, command }
     }
 }
 
-pub enum NetworkResponse {
+pub enum CommandResponce {
     CheckConnectivity(Connectivity),
     ListConnections(ConnectionList),
     ListWiFiNetworks(NetworkList),
@@ -162,14 +162,14 @@ thread_local! {
     static GLOBAL: RefCell<Option<NetworkState>> = RefCell::new(None);
 }
 
-pub fn create_channel() -> (glib::Sender<NetworkRequest>, glib::Receiver<NetworkRequest>) {
+pub fn create_channel() -> (glib::Sender<CommandRequest>, glib::Receiver<CommandRequest>) {
     MainContext::channel(glib::PRIORITY_DEFAULT)
 }
 
 pub fn run_network_manager_loop(
     opts: Opts,
     initialized_sender: oneshot::Sender<Result<()>>,
-    glib_receiver: glib::Receiver<NetworkRequest>,
+    glib_receiver: glib::Receiver<CommandRequest>,
 ) {
     let context = MainContext::new();
     let loop_ = MainLoop::new(Some(&context), false);
@@ -227,20 +227,20 @@ async fn init_network(opts: Opts) -> Result<()> {
     Ok(())
 }
 
-fn dispatch_command_requests(command_request: NetworkRequest) -> glib::Continue {
-    let NetworkRequest { responder, command } = command_request;
+fn dispatch_command_requests(command_request: CommandRequest) -> glib::Continue {
+    let CommandRequest { responder, command } = command_request;
     match command {
-        NetworkCommand::CheckConnectivity => spawn(check_connectivity(), responder),
-        NetworkCommand::ListConnections => spawn(list_connections(), responder),
-        NetworkCommand::ListWiFiNetworks => spawn(list_wifi_networks(), responder),
-        NetworkCommand::Shutdown => spawn(shutdown(), responder),
-        NetworkCommand::Stop => spawn(stop(), responder),
+        Command::CheckConnectivity => spawn(check_connectivity(), responder),
+        Command::ListConnections => spawn(list_connections(), responder),
+        Command::ListWiFiNetworks => spawn(list_wifi_networks(), responder),
+        Command::Shutdown => spawn(shutdown(), responder),
+        Command::Stop => spawn(stop(), responder),
     };
     glib::Continue(true)
 }
 
 fn spawn(
-    command_future: impl Future<Output = Result<NetworkResponse>> + 'static,
+    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
     responder: TokioResponder,
 ) {
     let context = MainContext::ref_thread_default();
@@ -248,14 +248,14 @@ fn spawn(
 }
 
 async fn execute_and_respond(
-    command_future: impl Future<Output = Result<NetworkResponse>> + 'static,
+    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
     responder: TokioResponder,
 ) {
     let result = command_future.await;
     let _ = responder.send(result);
 }
 
-async fn check_connectivity() -> Result<NetworkResponse> {
+async fn check_connectivity() -> Result<CommandResponce> {
     let client = get_global_client()?;
 
     let connectivity = client
@@ -263,12 +263,12 @@ async fn check_connectivity() -> Result<NetworkResponse> {
         .await
         .context("Failed to execute check connectivity")?;
 
-    Ok(NetworkResponse::CheckConnectivity(Connectivity::new(
+    Ok(CommandResponce::CheckConnectivity(Connectivity::new(
         connectivity.to_string(),
     )))
 }
 
-async fn list_connections() -> Result<NetworkResponse> {
+async fn list_connections() -> Result<CommandResponce> {
     let client = get_global_client()?;
 
     let all_connections: Vec<_> = client
@@ -289,13 +289,13 @@ async fn list_connections() -> Result<NetworkResponse> {
         }
     }
 
-    Ok(NetworkResponse::ListConnections(ConnectionList::new(
+    Ok(CommandResponce::ListConnections(ConnectionList::new(
         connections,
     )))
 }
 
-async fn list_wifi_networks() -> Result<NetworkResponse> {
-    Ok(NetworkResponse::ListWiFiNetworks(NetworkList::new(
+async fn list_wifi_networks() -> Result<CommandResponce> {
+    Ok(CommandResponce::ListWiFiNetworks(NetworkList::new(
         get_global_stations()?,
     )))
 }
@@ -330,18 +330,18 @@ fn get_global_client() -> Result<Client> {
     })
 }
 
-async fn shutdown() -> Result<NetworkResponse> {
-    Ok(NetworkResponse::Shutdown(Shutdown::new("ok")))
+async fn shutdown() -> Result<CommandResponce> {
+    Ok(CommandResponce::Shutdown(Shutdown::new("ok")))
 }
 
-async fn stop() -> Result<NetworkResponse> {
+async fn stop() -> Result<CommandResponce> {
     let client = get_global_client()?;
 
     if let Some(active_connection) = get_global_portal_connection()? {
         stop_portal(&client, &active_connection).await?;
     }
 
-    Ok(NetworkResponse::Stop(Stop::new("ok")))
+    Ok(CommandResponce::Stop(Stop::new("ok")))
 }
 
 async fn scan_wifi(device: &DeviceWifi) -> Result<()> {
