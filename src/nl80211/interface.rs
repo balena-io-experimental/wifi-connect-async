@@ -29,20 +29,20 @@ pub enum InterfaceType {
 impl From<::std::os::raw::c_uint> for InterfaceType {
     fn from(orig: ::std::os::raw::c_uint) -> Self {
         match orig {
-            consts::NL80211_IFTYPE_UNSPECIFIED => InterfaceType::Unspecified,
-            consts::NL80211_IFTYPE_ADHOC => InterfaceType::Adhoc,
-            consts::NL80211_IFTYPE_STATION => InterfaceType::Station,
-            consts::NL80211_IFTYPE_AP => InterfaceType::AP,
-            consts::NL80211_IFTYPE_AP_VLAN => InterfaceType::APVlan,
-            consts::NL80211_IFTYPE_WDS => InterfaceType::WDS,
-            consts::NL80211_IFTYPE_MONITOR => InterfaceType::Monitor,
-            consts::NL80211_IFTYPE_MESH_POINT => InterfaceType::MeshPoint,
-            consts::NL80211_IFTYPE_P2P_CLIENT => InterfaceType::P2PClient,
-            consts::NL80211_IFTYPE_P2P_GO => InterfaceType::P2PGo,
-            consts::NL80211_IFTYPE_P2P_DEVICE => InterfaceType::P2PDevice,
-            consts::NL80211_IFTYPE_OCB => InterfaceType::Ocb,
-            consts::NL80211_IFTYPE_NAN => InterfaceType::Nan,
-            _ => InterfaceType::Unspecified,
+            consts::NL80211_IFTYPE_UNSPECIFIED => Self::Unspecified,
+            consts::NL80211_IFTYPE_ADHOC => Self::Adhoc,
+            consts::NL80211_IFTYPE_STATION => Self::Station,
+            consts::NL80211_IFTYPE_AP => Self::AP,
+            consts::NL80211_IFTYPE_AP_VLAN => Self::APVlan,
+            consts::NL80211_IFTYPE_WDS => Self::WDS,
+            consts::NL80211_IFTYPE_MONITOR => Self::Monitor,
+            consts::NL80211_IFTYPE_MESH_POINT => Self::MeshPoint,
+            consts::NL80211_IFTYPE_P2P_CLIENT => Self::P2PClient,
+            consts::NL80211_IFTYPE_P2P_GO => Self::P2PGo,
+            consts::NL80211_IFTYPE_P2P_DEVICE => Self::P2PDevice,
+            consts::NL80211_IFTYPE_OCB => Self::Ocb,
+            consts::NL80211_IFTYPE_NAN => Self::Nan,
+            _ => Self::Unspecified,
         }
     }
 }
@@ -74,7 +74,7 @@ impl TryFrom<&Genlmsghdr<Nl80211Cmd, Nl80211Attr>> for Interface {
             .get_attr_payload_as_with_len::<&[u8]>(Nl80211Attr::Mac)?
             .try_into()?;
         let mac_address = mac_bytes.into();
-        Ok(Interface {
+        Ok(Self {
             name,
             index,
             iftype,

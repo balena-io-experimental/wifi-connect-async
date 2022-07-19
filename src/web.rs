@@ -30,7 +30,7 @@ pub struct AppErrors {
 
 impl AppErrors {
     fn new(errors: Vec<String>) -> Self {
-        AppErrors { errors }
+        Self { errors }
     }
 }
 
@@ -179,8 +179,8 @@ async fn receive_network_thread_response(
 impl From<Result<NetworkResponse>> for AppResponse {
     fn from(result: Result<NetworkResponse>) -> Self {
         match result {
-            Ok(network_response) => AppResponse::Network(network_response),
-            Err(err) => AppResponse::Error(err),
+            Ok(network_response) => Self::Network(network_response),
+            Err(err) => Self::Error(err),
         }
     }
 }

@@ -38,7 +38,7 @@ pub struct NetworkRequest {
 
 impl NetworkRequest {
     pub fn new(responder: TokioResponder, command: NetworkCommand) -> Self {
-        NetworkRequest { responder, command }
+        Self { responder, command }
     }
 }
 
@@ -57,7 +57,7 @@ pub struct Connectivity {
 
 impl Connectivity {
     fn new(connectivity: String) -> Self {
-        Connectivity { connectivity }
+        Self { connectivity }
     }
 }
 
@@ -68,7 +68,7 @@ pub struct ConnectionList {
 
 impl ConnectionList {
     fn new(connections: Vec<ConnectionDetails>) -> Self {
-        ConnectionList { connections }
+        Self { connections }
     }
 }
 
@@ -80,7 +80,7 @@ pub struct ConnectionDetails {
 
 impl ConnectionDetails {
     fn new(id: String, uuid: String) -> Self {
-        ConnectionDetails { id, uuid }
+        Self { id, uuid }
     }
 }
 
@@ -91,7 +91,7 @@ pub struct NetworkList {
 
 impl NetworkList {
     fn new(stations: Vec<Station>) -> Self {
-        NetworkList { stations }
+        Self { stations }
     }
 }
 
@@ -103,7 +103,7 @@ pub struct Station {
 
 impl Station {
     fn new(ssid: String, quality: u8) -> Self {
-        Station { ssid, quality }
+        Self { ssid, quality }
     }
 }
 
@@ -114,7 +114,7 @@ pub struct Shutdown {
 
 impl Shutdown {
     fn new(shutdown: &'static str) -> Self {
-        Shutdown { shutdown }
+        Self { shutdown }
     }
 }
 
@@ -125,7 +125,7 @@ pub struct Stop {
 
 impl Stop {
     fn new(stop: &'static str) -> Self {
-        Stop { stop }
+        Self { stop }
     }
 }
 
@@ -143,7 +143,7 @@ impl NetworkState {
         stations: Vec<Station>,
         portal_connection: Option<ActiveConnection>,
     ) -> Self {
-        NetworkState {
+        Self {
             client,
             _device,
             stations,
