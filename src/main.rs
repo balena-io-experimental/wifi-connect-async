@@ -13,7 +13,11 @@
     missing_debug_implementations,
     unused
 )]
-#![allow(clippy::missing_docs_in_private_items, clippy::implicit_return)]
+#![allow(
+    clippy::missing_docs_in_private_items,
+    clippy::implicit_return,
+    clippy::mod_module_files
+)]
 
 mod network;
 mod nl80211;
