@@ -167,11 +167,11 @@ async fn receive_network_thread_response(
     receiver: oneshot::Receiver<Result<NetworkResponse>>,
     action: &str,
 ) -> Result<NetworkResponse> {
-    let received = receiver
+    let result = receiver
         .await
         .context("Failed to receive network thread response");
 
-    received
+    result
         .and_then(|r| r)
         .or_else(|e| Err(e).context(format!("Failed to {}", action)))
 }
