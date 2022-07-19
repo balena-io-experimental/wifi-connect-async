@@ -494,7 +494,7 @@ async fn create_portal(
         interface.as_str(),
         &opts.ssid,
         &opts.gateway,
-        &opts.password.as_ref().map(|p| p as &str),
+        &opts.password.as_deref(),
     )?;
 
     let active_connection = client
@@ -545,7 +545,7 @@ async fn finalize_active_connection_state(
     let handler_id = active_connection.connect_state_changed(move |_, state, _| {
         let sender = sender.clone();
         spawn_local(async move {
-            let state = unsafe { ActiveConnectionState::from_glib(state as _) };
+            let state = unsafe { ActiveConnectionState::from_glib(state.try_into().unwrap()) };
             println!("Connection: {:?}", state);
 
             let exit = match state {

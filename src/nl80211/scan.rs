@@ -247,11 +247,12 @@ fn extract_ssid(cursor: &mut std::io::Cursor<&[u8]>) -> Vec<u8> {
 fn extract_element(cursor: &mut std::io::Cursor<&[u8]>) -> Option<(u8, Vec<u8>)> {
     let eid = cursor.read_u8().ok()?;
     let size = cursor.read_u8().ok()?;
-    let mut data = vec![0u8; size as _];
+    let mut data = vec![0; size.into()];
     cursor.read_exact(&mut data).ok()?;
     Some((eid, data))
 }
 
+#[allow(clippy::as_conversions)]
 fn dbm_level_to_quality(signal: i32) -> u8 {
     let mut val = f64::from(signal) / 100.;
     val = val.clamp(-100., -40.);
