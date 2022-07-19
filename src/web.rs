@@ -130,7 +130,7 @@ async fn stop(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
 }
 
 async fn scan(_: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    let stations = nl80211::scan("wlan0").await.unwrap();
+    let stations = nl80211::scan::scan("wlan0").await.unwrap();
     (StatusCode::OK, Json(stations)).into_response()
 }
 
