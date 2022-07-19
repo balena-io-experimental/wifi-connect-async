@@ -14,7 +14,13 @@ use serde::Serialize;
 
 use crate::opts::Opts;
 
-use nm::*;
+use nm::{
+    utils_get_timestamp_msec, AccessPoint, ActiveConnection, ActiveConnectionExt,
+    ActiveConnectionState, Cast, Client, Connection, ConnectionExt, Device, DeviceExt, DeviceState,
+    DeviceType, DeviceWifi, IPAddress, SettingConnection, SettingIP4Config, SettingIPConfigExt,
+    SettingWireless, SettingWirelessSecurity, SimpleConnection, SETTING_IP4_CONFIG_METHOD_MANUAL,
+    SETTING_WIRELESS_MODE_AP, SETTING_WIRELESS_SETTING_NAME,
+};
 
 const WIFI_SCAN_TIMEOUT_SECONDS: usize = 45;
 
