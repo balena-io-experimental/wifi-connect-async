@@ -113,9 +113,10 @@ impl Stop {
     }
 }
 
+#[allow(dead_code)]
 struct NetworkState {
     client: Client,
-    _device: DeviceWifi,
+    device: DeviceWifi,
     stations: Vec<Station>,
     portal_connection: Option<ActiveConnection>,
 }
@@ -123,13 +124,13 @@ struct NetworkState {
 impl NetworkState {
     fn new(
         client: Client,
-        _device: DeviceWifi,
+        device: DeviceWifi,
         stations: Vec<Station>,
         portal_connection: Option<ActiveConnection>,
     ) -> Self {
         Self {
             client,
-            _device,
+            device,
             stations,
             portal_connection,
         }
