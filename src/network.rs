@@ -50,7 +50,7 @@ impl CommandRequest {
 
 pub enum CommandResponce {
     CheckConnectivity(Connectivity),
-    ListConnections(ConnectionList),
+    ListConnections(Vec<ConnectionDetails>),
     ListWiFiNetworks(Vec<Station>),
     Shutdown(Shutdown),
     Stop(Stop),
@@ -64,17 +64,6 @@ pub struct Connectivity {
 impl Connectivity {
     const fn new(connectivity: String) -> Self {
         Self { connectivity }
-    }
-}
-
-#[derive(Serialize)]
-pub struct ConnectionList {
-    pub connections: Vec<ConnectionDetails>,
-}
-
-impl ConnectionList {
-    fn new(connections: Vec<ConnectionDetails>) -> Self {
-        Self { connections }
     }
 }
 
@@ -278,9 +267,7 @@ async fn list_connections() -> Result<CommandResponce> {
         }
     }
 
-    Ok(CommandResponce::ListConnections(ConnectionList::new(
-        connections,
-    )))
+    Ok(CommandResponce::ListConnections(connections))
 }
 
 async fn list_wifi_networks() -> Result<CommandResponce> {
