@@ -3,7 +3,11 @@ name = "wifi-connect"
 version = "5.0.0"
 authors = ["majorz"]
 description = "Easy WiFi setup for Linux devices from your mobile phone or laptop"
+readme = "README.md"
+repository = "https://github.com/balena-io-playground/wifi-connect-async"
 license = "Apache-2.0"
+keywords = ["network", "wifi", "access-point", "captive-portal", "network-manager"]
+categories = ["network-programming"]
 edition = "2021"
 
 [dependencies]
