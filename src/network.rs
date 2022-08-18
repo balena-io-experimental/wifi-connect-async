@@ -51,7 +51,7 @@ impl CommandRequest {
 pub enum CommandResponce {
     CheckConnectivity(Connectivity),
     ListConnections(ConnectionList),
-    ListWiFiNetworks(NetworkList),
+    ListWiFiNetworks(Vec<Station>),
     Shutdown(Shutdown),
     Stop(Stop),
 }
@@ -87,17 +87,6 @@ pub struct ConnectionDetails {
 impl ConnectionDetails {
     const fn new(id: String, uuid: String) -> Self {
         Self { id, uuid }
-    }
-}
-
-#[derive(Serialize)]
-pub struct NetworkList {
-    pub stations: Vec<Station>,
-}
-
-impl NetworkList {
-    fn new(stations: Vec<Station>) -> Self {
-        Self { stations }
     }
 }
 
@@ -295,9 +284,7 @@ async fn list_connections() -> Result<CommandResponce> {
 }
 
 async fn list_wifi_networks() -> Result<CommandResponce> {
-    Ok(CommandResponce::ListWiFiNetworks(NetworkList::new(
-        get_global_stations()?,
-    )))
+    Ok(CommandResponce::ListWiFiNetworks(get_global_stations()?))
 }
 
 fn get_global_stations() -> Result<Vec<Station>> {
