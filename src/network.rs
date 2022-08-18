@@ -62,7 +62,7 @@ pub struct Connectivity {
 }
 
 impl Connectivity {
-    fn new(connectivity: String) -> Self {
+    const fn new(connectivity: String) -> Self {
         Self { connectivity }
     }
 }
@@ -85,7 +85,7 @@ pub struct ConnectionDetails {
 }
 
 impl ConnectionDetails {
-    fn new(id: String, uuid: String) -> Self {
+    const fn new(id: String, uuid: String) -> Self {
         Self { id, uuid }
     }
 }
@@ -108,7 +108,7 @@ pub struct Station {
 }
 
 impl Station {
-    fn new(ssid: String, quality: u8) -> Self {
+    const fn new(ssid: String, quality: u8) -> Self {
         Self { ssid, quality }
     }
 }
@@ -119,7 +119,7 @@ pub struct Shutdown {
 }
 
 impl Shutdown {
-    fn new(shutdown: &'static str) -> Self {
+    const fn new(shutdown: &'static str) -> Self {
         Self { shutdown }
     }
 }
@@ -130,7 +130,7 @@ pub struct Stop {
 }
 
 impl Stop {
-    fn new(stop: &'static str) -> Self {
+    const fn new(stop: &'static str) -> Self {
         Self { stop }
     }
 }
