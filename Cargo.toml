@@ -3,6 +3,7 @@ name = "wifi-connect"
 version = "5.0.0"
 authors = ["majorz"]
 description = "Easy WiFi setup for Linux devices from your mobile phone or laptop"
+license = "Apache-2.0"
 edition = "2021"
 
 [dependencies]
