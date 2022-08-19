@@ -231,7 +231,7 @@ async fn execute_and_respond(
     responder: TokioResponder,
 ) {
     let result = command_future.await;
-    let _ = responder.send(result);
+    let _res = responder.send(result);
 }
 
 async fn check_connectivity() -> Result<CommandResponce> {
