@@ -257,7 +257,7 @@ fn list_connections() -> Result<CommandResponce> {
     let all_connections: Vec<_> = client
         .connections()
         .into_iter()
-        .map(|c| c.upcast::<Connection>())
+        .map(glib::Cast::upcast::<Connection>)
         .collect();
 
     let mut connections = Vec::new();
