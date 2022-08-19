@@ -16,7 +16,8 @@
 #![allow(
     clippy::missing_docs_in_private_items,
     clippy::implicit_return,
-    clippy::mod_module_files
+    clippy::mod_module_files,
+    clippy::expect_used
 )]
 
 mod network;

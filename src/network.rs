@@ -161,7 +161,7 @@ pub fn run_network_manager_loop(
 
             loop_.run();
         })
-        .unwrap();
+        .expect("Main context is owned already by another thread");
 }
 
 async fn init_network_respond(opts: Opts, initialized_sender: oneshot::Sender<Result<()>>) {
@@ -177,7 +177,7 @@ async fn init_network(opts: Opts) -> Result<()> {
 
     let device = find_device(&client, &opts.interface)?;
 
-    let interface = device.clone().upcast::<Device>().iface().unwrap();
+    let interface = get_wifi_device_interface(&device);
 
     println!("Interface: {}", interface);
 
@@ -451,13 +451,13 @@ fn get_exact_device(client: &Client, interface: &str) -> Result<DeviceWifi> {
         bail!("Interface is not managed by NetworkManager '{}'", interface);
     }
 
-    Ok(device.downcast().unwrap())
+    Ok(device.downcast().expect("Cannot downcast to DeviceWifi"))
 }
 
 fn find_any_wifi_device(client: &Client) -> Result<DeviceWifi> {
     for device in client.devices() {
         if device.device_type() == DeviceType::Wifi && device.state() != DeviceState::Unmanaged {
-            return Ok(device.downcast().unwrap());
+            return Ok(device.downcast().expect("Cannot downcast to DeviceWifi"));
         }
     }
 
@@ -469,7 +469,7 @@ async fn create_portal(
     device: &DeviceWifi,
     opts: &Opts,
 ) -> Result<ActiveConnection> {
-    let interface = device.clone().upcast::<Device>().iface().unwrap();
+    let interface = get_wifi_device_interface(&device);
 
     let connection = create_ap_connection(
         interface.as_str(),
@@ -526,7 +526,11 @@ async fn finalize_active_connection_state(
     let handler_id = active_connection.connect_state_changed(move |_, state, _| {
         let sender = sender.clone();
         spawn_local(async move {
-            let state = unsafe { ActiveConnectionState::from_glib(state.try_into().unwrap()) };
+            let state = unsafe {
+                ActiveConnectionState::from_glib(
+                    state.try_into().expect("Unknown connection state"),
+                )
+            };
             println!("Connection: {:?}", state);
 
             let exit = match state {
@@ -591,4 +595,13 @@ fn create_ap_connection(
 
 pub fn spawn_local<F: Future<Output = ()> + 'static>(f: F) {
     glib::MainContext::ref_thread_default().spawn_local(f);
+}
+
+fn get_wifi_device_interface(device: &DeviceWifi) -> String {
+    device
+        .clone()
+        .upcast::<Device>()
+        .iface()
+        .expect("No interface associated with device")
+        .to_string()
 }
