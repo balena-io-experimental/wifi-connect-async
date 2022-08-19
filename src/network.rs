@@ -209,29 +209,33 @@ async fn init_network(opts: Opts) -> Result<()> {
 fn dispatch_command_requests(command_request: CommandRequest) -> glib::Continue {
     let CommandRequest { responder, command } = command_request;
     match command {
-        Command::CheckConnectivity => spawn(check_connectivity(), responder),
-        Command::ListConnections => spawn(list_connections(), responder),
-        Command::ListWiFiNetworks => spawn(list_wifi_networks(), responder),
-        Command::Shutdown => spawn(shutdown(), responder),
-        Command::Stop => spawn(stop(), responder),
+        Command::CheckConnectivity => spawn(responder, check_connectivity()),
+        Command::ListConnections => respond(responder, list_connections()),
+        Command::ListWiFiNetworks => respond(responder, list_wifi_networks()),
+        Command::Shutdown => respond(responder, shutdown()),
+        Command::Stop => spawn(responder, stop()),
     };
     glib::Continue(true)
 }
 
 fn spawn(
-    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
     responder: TokioResponder,
+    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
 ) {
     let context = MainContext::ref_thread_default();
-    context.spawn_local(execute_and_respond(command_future, responder));
+    context.spawn_local(execute_and_respond(responder, command_future));
 }
 
 async fn execute_and_respond(
-    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
     responder: TokioResponder,
+    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
 ) {
     let result = command_future.await;
-    let _res = responder.send(result);
+    respond(responder, result);
+}
+
+fn respond(responder: TokioResponder, response: Result<CommandResponce>) {
+    let _res = responder.send(response);
 }
 
 async fn check_connectivity() -> Result<CommandResponce> {
@@ -247,7 +251,7 @@ async fn check_connectivity() -> Result<CommandResponce> {
     )))
 }
 
-async fn list_connections() -> Result<CommandResponce> {
+fn list_connections() -> Result<CommandResponce> {
     let client = get_global_client()?;
 
     let all_connections: Vec<_> = client
@@ -271,7 +275,7 @@ async fn list_connections() -> Result<CommandResponce> {
     Ok(CommandResponce::ListConnections(connections))
 }
 
-async fn list_wifi_networks() -> Result<CommandResponce> {
+fn list_wifi_networks() -> Result<CommandResponce> {
     Ok(CommandResponce::ListWiFiNetworks(get_global_stations()?))
 }
 
@@ -305,7 +309,7 @@ fn get_global_client() -> Result<Client> {
     })
 }
 
-async fn shutdown() -> Result<CommandResponce> {
+fn shutdown() -> Result<CommandResponce> {
     Ok(CommandResponce::Shutdown(Shutdown::new("ok")))
 }
 
