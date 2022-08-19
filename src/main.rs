@@ -17,7 +17,8 @@
     clippy::missing_docs_in_private_items,
     clippy::implicit_return,
     clippy::mod_module_files,
-    clippy::expect_used
+    clippy::expect_used,
+    clippy::future_not_send
 )]
 
 mod network;
