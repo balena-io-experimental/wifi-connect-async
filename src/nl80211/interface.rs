@@ -10,7 +10,7 @@ use crate::nl80211::consts;
 use crate::nl80211::enums::{Nl80211Attr, Nl80211Cmd};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum InterfaceType {
+pub enum Iftype {
     Unspecified = 0,
     Adhoc,
     Station,
@@ -26,7 +26,7 @@ pub enum InterfaceType {
     Nan,
 }
 
-impl From<::std::os::raw::c_uint> for InterfaceType {
+impl From<::std::os::raw::c_uint> for Iftype {
     fn from(orig: ::std::os::raw::c_uint) -> Self {
         match orig {
             consts::NL80211_IFTYPE_UNSPECIFIED => Self::Unspecified,
@@ -52,7 +52,7 @@ impl From<::std::os::raw::c_uint> for InterfaceType {
 pub struct Interface {
     pub name: String,
     pub index: u32,
-    pub iftype: InterfaceType,
+    pub iftype: Iftype,
     pub wiphy: u32,
     pub wdev: u64,
     pub mac_address: MacAddr6,
