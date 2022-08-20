@@ -462,7 +462,7 @@ async fn create_portal(
     device: &DeviceWifi,
     opts: &Opts,
 ) -> Result<ActiveConnection> {
-    let interface = get_wifi_device_interface(&device);
+    let interface = get_wifi_device_interface(device);
 
     let connection = create_ap_connection(
         interface.as_str(),
