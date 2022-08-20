@@ -29,7 +29,6 @@ pub enum Iftype {
 impl From<::std::os::raw::c_uint> for Iftype {
     fn from(orig: ::std::os::raw::c_uint) -> Self {
         match orig {
-            consts::NL80211_IFTYPE_UNSPECIFIED => Self::Unspecified,
             consts::NL80211_IFTYPE_ADHOC => Self::Adhoc,
             consts::NL80211_IFTYPE_STATION => Self::Station,
             consts::NL80211_IFTYPE_AP => Self::AP,
