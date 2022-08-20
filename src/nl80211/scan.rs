@@ -253,11 +253,13 @@ fn extract_element(cursor: &mut std::io::Cursor<&[u8]>) -> Option<(u8, Vec<u8>)>
 }
 
 #[allow(clippy::as_conversions)]
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_sign_loss)]
 fn dbm_level_to_quality(signal: i32) -> u8 {
-    let mut val = f64::from(signal) / 100.;
-    val = val.clamp(-100., -40.);
-    val = (val + 40.).abs();
-    val = (100. - (100. * val) / 60.).round();
-    val = val.clamp(0., 100.);
+    let mut val = f64::from(signal) / 100_f64;
+    val = val.clamp(-100_f64, -40_f64);
+    val = (val + 40_f64).abs();
+    val = (100_f64 - (100_f64 * val) / 60_f64).round();
+    val = val.clamp(0_f64, 100_f64);
     val as u8
 }

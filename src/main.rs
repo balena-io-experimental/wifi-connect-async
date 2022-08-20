@@ -20,7 +20,9 @@
     clippy::expect_used,
     clippy::future_not_send,
     clippy::option_if_let_else,
-    clippy::wildcard_enum_match_arm
+    clippy::wildcard_enum_match_arm,
+    clippy::float_arithmetic,
+    clippy::separated_literal_suffix
 )]
 
 mod network;
