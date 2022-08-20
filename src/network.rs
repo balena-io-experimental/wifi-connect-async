@@ -514,28 +514,27 @@ async fn finalize_active_connection_state(
     println!("Monitoring connection state...");
 
     let (sender, receiver) = oneshot::channel::<ActiveConnectionState>();
-    let sender = Rc::new(RefCell::new(Some(sender)));
+    let sender_cell = Rc::new(RefCell::new(Some(sender)));
 
-    let handler_id = active_connection.connect_state_changed(move |_, state, _| {
-        let sender = sender.clone();
-        spawn_local(async move {
-            let state = unsafe {
-                ActiveConnectionState::from_glib(
-                    state.try_into().expect("Unknown connection state"),
-                )
-            };
-            println!("Connection: {:?}", state);
+    let handler_id = active_connection.connect_state_changed(move |_, state_u32, _| {
+        // SAFETY: conversion from u32 is guaranteed
+        let state = unsafe {
+            ActiveConnectionState::from_glib(
+                state_u32.try_into().expect("Unknown connection state"),
+            )
+        };
+        println!("Connection: {:?}", state);
 
-            let exit = match state {
-                ActiveConnectionState::Activated => Some(ActiveConnectionState::Activated),
-                ActiveConnectionState::Deactivated => Some(ActiveConnectionState::Deactivated),
-                _ => None,
-            };
-            if let Some(result) = exit {
-                let sender = sender.borrow_mut().take().unwrap();
-                sender.send(result).ok();
+        let exit = match state {
+            ActiveConnectionState::Activated => Some(ActiveConnectionState::Activated),
+            ActiveConnectionState::Deactivated => Some(ActiveConnectionState::Deactivated),
+            _ => None,
+        };
+        if let Some(result) = exit {
+            if let Some(inner_sender) = sender_cell.borrow_mut().take() {
+                inner_sender.send(result).ok();
             }
-        });
+        }
     });
 
     let state = receiver
@@ -584,10 +583,6 @@ fn create_ap_connection(
     connection.add_setting(&s_ip4);
 
     Ok(connection)
-}
-
-pub fn spawn_local<F: Future<Output = ()> + 'static>(f: F) {
-    glib::MainContext::ref_thread_default().spawn_local(f);
 }
 
 fn get_wifi_device_interface(device: &DeviceWifi) -> String {

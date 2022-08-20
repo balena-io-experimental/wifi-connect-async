@@ -19,7 +19,8 @@
     clippy::mod_module_files,
     clippy::expect_used,
     clippy::future_not_send,
-    clippy::option_if_let_else
+    clippy::option_if_let_else,
+    clippy::wildcard_enum_match_arm
 )]
 
 mod network;
