@@ -576,9 +576,9 @@ fn create_ap_connection(
     }
 
     let s_ip4 = SettingIP4Config::new();
-    let address =
+    let ip_address =
         IPAddress::new(libc::AF_INET, address, 24).context("Failed to parse gateway address")?;
-    s_ip4.add_address(&address);
+    s_ip4.add_address(&ip_address);
     s_ip4.set_method(Some(&SETTING_IP4_CONFIG_METHOD_MANUAL));
     connection.add_setting(&s_ip4);
 
