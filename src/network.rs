@@ -93,8 +93,8 @@ impl TryFrom<&AccessPoint> for Station {
     type Error = anyhow::Error;
 
     fn try_from(ap: &AccessPoint) -> Result<Self, Self::Error> {
-        if let Some(ssid) = ssid_to_string(ap.ssid()) {
-            Ok(Self::new(ssid, ap.strength()))
+        if let Some(ssid) = ssid_to_str(ap.ssid().as_deref()) {
+            Ok(Self::new(ssid.to_owned(), ap.strength()))
         } else {
             bail!("SSID not a string")
         }
@@ -357,9 +357,9 @@ fn get_nearby_stations(device: &DeviceWifi) -> Vec<Station> {
     stations
 }
 
-fn ssid_to_string(ssid: Option<glib::Bytes>) -> Option<String> {
+fn ssid_to_str(ssid: Option<&[u8]>) -> Option<&str> {
     // An access point SSID could be random bytes and not a UTF-8 encoded string
-    std::str::from_utf8(&ssid?).ok().map(str::to_owned)
+    std::str::from_utf8(ssid.as_ref()?).ok()
 }
 
 async fn create_client() -> Result<Client> {
@@ -392,11 +392,11 @@ async fn delete_exising_wifi_connect_ap_profile(client: &Client, ssid: &str) -> 
 }
 
 fn is_same_ssid(connection: &Connection, ssid: &str) -> bool {
-    connection_ssid_as_str(connection) == Some(ssid.to_string())
+    connection_ssid_to_string(connection).as_deref() == Some(ssid)
 }
 
-fn connection_ssid_as_str(connection: &Connection) -> Option<String> {
-    ssid_to_string(connection.setting_wireless()?.ssid())
+fn connection_ssid_to_string(connection: &Connection) -> Option<String> {
+    ssid_to_str(connection.setting_wireless()?.ssid().as_deref()).map(str::to_owned)
 }
 
 fn is_access_point_connection(connection: &Connection) -> bool {
