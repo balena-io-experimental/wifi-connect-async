@@ -468,7 +468,7 @@ async fn create_portal(
         interface.as_str(),
         &opts.ssid,
         &opts.gateway,
-        &opts.password.as_deref(),
+        opts.password.as_deref(),
     )?;
 
     let active_connection = client
@@ -550,7 +550,7 @@ fn create_ap_connection(
     interface: &str,
     ssid: &str,
     address: &str,
-    passphrase: &Option<&str>,
+    passphrase: Option<&str>,
 ) -> Result<SimpleConnection> {
     let connection = SimpleConnection::new();
 
