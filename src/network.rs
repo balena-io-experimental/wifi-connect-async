@@ -89,6 +89,18 @@ impl Station {
     }
 }
 
+impl TryFrom<&AccessPoint> for Station {
+    type Error = anyhow::Error;
+
+    fn try_from(ap: &AccessPoint) -> Result<Self, Self::Error> {
+        if let Some(ssid) = ssid_to_string(ap.ssid()) {
+            Ok(Self::new(ssid, ap.strength()))
+        } else {
+            bail!("SSID not a string")
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct Shutdown {
     pub shutdown: &'static str,
@@ -213,12 +225,7 @@ async fn init_network(opts: Opts) -> Result<NetworkState> {
 
     scan_wifi(&device).await?;
 
-    let access_points = get_nearby_access_points(&device);
-
-    let stations = access_points
-        .iter()
-        .map(|ap| Station::new(ap_ssid(ap), ap.strength()))
-        .collect::<Vec<_>>();
+    let stations = get_nearby_stations(&device);
 
     let portal_connection = Some(
         create_portal(&client, &device, &opts)
@@ -329,33 +336,30 @@ async fn scan_wifi(device: &DeviceWifi) -> Result<()> {
     Ok(())
 }
 
-fn get_nearby_access_points(device: &DeviceWifi) -> Vec<AccessPoint> {
-    let mut access_points = device.access_points();
-
-    // Purge non-string SSIDs
-    access_points.retain(|ap| ssid_to_string(ap.ssid()).is_some());
+fn get_nearby_stations(device: &DeviceWifi) -> Vec<Station> {
+    let mut stations = device
+        .access_points()
+        .iter()
+        .filter_map(|ap| Station::try_from(ap).ok())
+        .collect::<Vec<_>>();
 
     // Sort access points by signal strength first and then ssid
-    access_points.sort_by_key(|ap| (ap.strength(), ap_ssid(ap)));
-    access_points.reverse();
+    stations.sort_by_key(|station| (station.quality, station.ssid.clone()));
+    stations.reverse();
 
     // Purge access points with duplicate SSIDs
     let mut inserted = HashSet::new();
-    access_points.retain(|ap| inserted.insert(ap_ssid(ap)));
+    stations.retain(|station| inserted.insert(station.ssid.clone()));
 
     // Purge access points without SSID (hidden)
-    access_points.retain(|ap| !ap_ssid(ap).is_empty());
+    stations.retain(|station| !station.ssid.is_empty());
 
-    access_points
+    stations
 }
 
 fn ssid_to_string(ssid: Option<glib::Bytes>) -> Option<String> {
     // An access point SSID could be random bytes and not a UTF-8 encoded string
     std::str::from_utf8(&ssid?).ok().map(str::to_owned)
-}
-
-fn ap_ssid(ap: &AccessPoint) -> String {
-    ssid_to_string(ap.ssid()).unwrap()
 }
 
 async fn create_client() -> Result<Client> {
