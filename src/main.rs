@@ -18,7 +18,8 @@
     clippy::implicit_return,
     clippy::mod_module_files,
     clippy::expect_used,
-    clippy::future_not_send
+    clippy::future_not_send,
+    clippy::option_if_let_else
 )]
 
 mod network;
