@@ -24,8 +24,6 @@ use nm::{
 
 const WIFI_SCAN_TIMEOUT_SECONDS: usize = 45;
 
-const NETWORK_THREAD_NOT_INITIALIZED: &str = "Network thread not yet initialized";
-
 type TokioResponder = oneshot::Sender<Result<CommandResponce>>;
 
 #[derive(Debug)]
@@ -137,10 +135,6 @@ impl NetworkState {
     }
 }
 
-thread_local! {
-    static GLOBAL: RefCell<Option<NetworkState>> = RefCell::new(None);
-}
-
 pub fn create_channel() -> (glib::Sender<CommandRequest>, glib::Receiver<CommandRequest>) {
     MainContext::channel(glib::PRIORITY_DEFAULT)
 }
@@ -155,22 +149,58 @@ pub fn run_network_manager_loop(
 
     context
         .with_thread_default(|| {
-            glib_receiver.attach(None, dispatch_command_requests);
+            let state = context
+                .block_on(init_network_respond(opts, initialized_sender))
+                .expect("Network not initialized");
 
-            context.spawn_local(init_network_respond(opts, initialized_sender));
+            glib_receiver.attach(None, move |command_request| {
+                let CommandRequest { responder, command } = command_request;
+                let _ = &state;
+                match command {
+                    Command::CheckConnectivity => {
+                        spawn(responder, check_connectivity(state.client.clone()));
+                    }
+                    Command::ListConnections => {
+                        respond(responder, Ok(list_connections(&state.client)));
+                    }
+                    Command::ListWiFiNetworks => {
+                        respond(responder, Ok(list_wifi_networks(state.stations.clone())));
+                    }
+                    Command::Shutdown => {
+                        respond(responder, Ok(shutdown()));
+                    }
+                    Command::Stop => {
+                        spawn(
+                            responder,
+                            stop(state.client.clone(), state.portal_connection.clone()),
+                        );
+                    }
+                };
+                glib::Continue(true)
+            });
 
             loop_.run();
         })
         .expect("Main context is owned already by another thread");
 }
 
-async fn init_network_respond(opts: Opts, initialized_sender: oneshot::Sender<Result<()>>) {
-    let init_result = init_network(opts).await;
-
-    initialized_sender.send(init_result).ok();
+async fn init_network_respond(
+    opts: Opts,
+    initialized_sender: oneshot::Sender<Result<()>>,
+) -> Option<NetworkState> {
+    match init_network(opts).await {
+        Ok(state) => {
+            initialized_sender.send(Ok(())).ok();
+            Some(state)
+        }
+        Err(err) => {
+            initialized_sender.send(Err(err)).ok();
+            None
+        }
+    }
 }
 
-async fn init_network(opts: Opts) -> Result<()> {
+async fn init_network(opts: Opts) -> Result<NetworkState> {
     let client = create_client().await?;
 
     delete_exising_wifi_connect_ap_profile(&client, &opts.ssid).await?;
@@ -196,26 +226,14 @@ async fn init_network(opts: Opts) -> Result<()> {
             .context("Failed to create captive portal")?,
     );
 
-    GLOBAL.with(|global| {
-        let state = NetworkState::new(client, device, stations, portal_connection);
-        *global.borrow_mut() = Some(state);
-    });
-
     println!("Network initilized");
 
-    Ok(())
-}
-
-fn dispatch_command_requests(command_request: CommandRequest) -> glib::Continue {
-    let CommandRequest { responder, command } = command_request;
-    match command {
-        Command::CheckConnectivity => spawn(responder, check_connectivity()),
-        Command::ListConnections => respond(responder, list_connections()),
-        Command::ListWiFiNetworks => respond(responder, list_wifi_networks()),
-        Command::Shutdown => respond(responder, shutdown()),
-        Command::Stop => spawn(responder, stop()),
-    };
-    glib::Continue(true)
+    Ok(NetworkState::new(
+        client,
+        device,
+        stations,
+        portal_connection,
+    ))
 }
 
 fn spawn(
@@ -228,7 +246,7 @@ fn spawn(
 
 async fn execute_and_respond(
     responder: TokioResponder,
-    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
+    command_future: impl Future<Output = Result<CommandResponce>>,
 ) {
     let result = command_future.await;
     respond(responder, result);
@@ -238,9 +256,7 @@ fn respond(responder: TokioResponder, response: Result<CommandResponce>) {
     let _res = responder.send(response);
 }
 
-async fn check_connectivity() -> Result<CommandResponce> {
-    let client = get_global_client()?;
-
+async fn check_connectivity(client: Client) -> Result<CommandResponce> {
     let connectivity = client
         .check_connectivity_future()
         .await
@@ -251,9 +267,7 @@ async fn check_connectivity() -> Result<CommandResponce> {
     )))
 }
 
-fn list_connections() -> Result<CommandResponce> {
-    let client = get_global_client()?;
-
+fn list_connections(client: &Client) -> CommandResponce {
     let all_connections: Vec<_> = client
         .connections()
         .into_iter()
@@ -272,51 +286,22 @@ fn list_connections() -> Result<CommandResponce> {
         }
     }
 
-    Ok(CommandResponce::ListConnections(connections))
+    CommandResponce::ListConnections(connections)
 }
 
-fn list_wifi_networks() -> Result<CommandResponce> {
-    Ok(CommandResponce::ListWiFiNetworks(get_global_stations()?))
+const fn list_wifi_networks(stations: Vec<Station>) -> CommandResponce {
+    CommandResponce::ListWiFiNetworks(stations)
 }
 
-fn get_global_stations() -> Result<Vec<Station>> {
-    GLOBAL.with(|global| {
-        if let Some(ref state) = *global.borrow() {
-            Ok(state.stations.clone())
-        } else {
-            Err(anyhow!(NETWORK_THREAD_NOT_INITIALIZED))
-        }
-    })
+const fn shutdown() -> CommandResponce {
+    CommandResponce::Shutdown(Shutdown::new("ok"))
 }
 
-fn get_global_portal_connection() -> Result<Option<ActiveConnection>> {
-    GLOBAL.with(|global| {
-        if let Some(ref state) = *global.borrow() {
-            Ok(state.portal_connection.clone())
-        } else {
-            Err(anyhow!(NETWORK_THREAD_NOT_INITIALIZED))
-        }
-    })
-}
-
-fn get_global_client() -> Result<Client> {
-    GLOBAL.with(|global| {
-        if let Some(ref state) = *global.borrow() {
-            Ok(state.client.clone())
-        } else {
-            Err(anyhow!(NETWORK_THREAD_NOT_INITIALIZED))
-        }
-    })
-}
-
-fn shutdown() -> Result<CommandResponce> {
-    Ok(CommandResponce::Shutdown(Shutdown::new("ok")))
-}
-
-async fn stop() -> Result<CommandResponce> {
-    let client = get_global_client()?;
-
-    if let Some(active_connection) = get_global_portal_connection()? {
+async fn stop(
+    client: Client,
+    portal_connection: Option<ActiveConnection>,
+) -> Result<CommandResponce> {
+    if let Some(active_connection) = portal_connection {
         stop_portal(&client, &active_connection).await?;
     }
 
