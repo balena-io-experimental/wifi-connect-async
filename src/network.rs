@@ -217,7 +217,7 @@ async fn init_network(opts: Opts) -> Result<NetworkState> {
 
     delete_exising_wifi_connect_ap_profile(&client, &opts.ssid).await?;
 
-    let device = find_device(&client, &opts.interface)?;
+    let device = find_device(&client, opts.interface.as_deref())?;
 
     let interface = get_wifi_device_interface(&device);
 
@@ -423,9 +423,9 @@ fn is_wifi_connection(connection: &Connection) -> bool {
     false
 }
 
-pub fn find_device(client: &Client, interface: &Option<String>) -> Result<DeviceWifi> {
-    if let Some(ref interface) = *interface {
-        get_exact_device(client, interface)
+pub fn find_device(client: &Client, interface: Option<&str>) -> Result<DeviceWifi> {
+    if let Some(iface) = interface {
+        get_exact_device(client, iface)
     } else {
         find_any_wifi_device(client)
     }
