@@ -31,7 +31,6 @@ pub enum Command {
     CheckConnectivity,
     ListConnections,
     ListWiFiNetworks,
-    Shutdown,
     Stop,
 }
 
@@ -50,7 +49,6 @@ pub enum CommandResponce {
     CheckConnectivity(Connectivity),
     ListConnections(Vec<ConnectionDetails>),
     ListWiFiNetworks(Vec<Station>),
-    Shutdown(Shutdown),
     Stop(Stop),
 }
 
@@ -98,17 +96,6 @@ impl TryFrom<&AccessPoint> for Station {
         } else {
             bail!("SSID not a string")
         }
-    }
-}
-
-#[derive(Serialize)]
-pub struct Shutdown {
-    pub shutdown: &'static str,
-}
-
-impl Shutdown {
-    const fn new(shutdown: &'static str) -> Self {
-        Self { shutdown }
     }
 }
 
@@ -177,9 +164,6 @@ pub fn run_network_manager_loop(
                     }
                     Command::ListWiFiNetworks => {
                         respond(responder, Ok(list_wifi_networks(state.stations.clone())));
-                    }
-                    Command::Shutdown => {
-                        respond(responder, Ok(shutdown()));
                     }
                     Command::Stop => {
                         spawn(
@@ -298,10 +282,6 @@ fn list_connections(client: &Client) -> CommandResponce {
 
 const fn list_wifi_networks(stations: Vec<Station>) -> CommandResponce {
     CommandResponce::ListWiFiNetworks(stations)
-}
-
-const fn shutdown() -> CommandResponce {
-    CommandResponce::Shutdown(Shutdown::new("ok"))
 }
 
 async fn stop(
