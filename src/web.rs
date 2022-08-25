@@ -1,16 +1,8 @@
-use std::sync::{Arc, Mutex};
-
 use anyhow::{Context, Result};
 
-use axum::{
-    extract,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::get,
-    Extension, Json, Router,
-};
+use actix_web::web::{resource, Data};
+use actix_web::{middleware, App, HttpResponse, HttpServer};
 
-use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::oneshot;
 
 use serde::Serialize;
@@ -34,110 +26,58 @@ impl AppErrors {
     }
 }
 
-struct MainState {
-    glib_sender: glib::Sender<CommandRequest>,
-    shutdown_opt: Mutex<Option<oneshot::Sender<()>>>,
-}
+type Sender = glib::Sender<CommandRequest>;
 
-pub async fn run_web_loop(glib_sender: glib::Sender<CommandRequest>) {
-    let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-    let shared_state = Arc::new(MainState {
-        glib_sender: glib_sender.clone(),
-        shutdown_opt: Mutex::new(Some(shutdown_tx)),
-    });
-
-    let app = Router::new()
-        .route("/", get(usage))
-        .route("/check-connectivity", get(check_connectivity))
-        .route("/list-connections", get(list_connections))
-        .route("/list-wifi-networks", get(list_wifi_networks))
-        .route("/shutdown", get(shutdown))
-        .route("/stop", get(stop))
-        .route("/scan", get(scan))
-        .layer(Extension(shared_state));
-
-    let server =
-        axum::Server::bind(&"0.0.0.0:3000".parse().unwrap()).serve(app.into_make_service());
-
-    let graceful = server.with_graceful_shutdown(shutdown_signal(shutdown_rx, glib_sender));
-
+pub async fn run_web_loop(glib_sender: Sender) {
     println!("Web server starting...");
 
-    graceful.await.unwrap();
-}
-
-async fn shutdown_signal(
-    shutdown_rx: oneshot::Receiver<()>,
-    glib_sender: glib::Sender<CommandRequest>,
-) {
-    let mut interrupt = signal(SignalKind::interrupt()).unwrap();
-    let mut terminate = signal(SignalKind::terminate()).unwrap();
-    let mut quit = signal(SignalKind::quit()).unwrap();
-    let mut hangup = signal(SignalKind::hangup()).unwrap();
-
-    tokio::select! {
-        _ = shutdown_rx => {},
-        _ = interrupt.recv() => println!("SIGINT received"),
-        _ = terminate.recv() => println!("SIGTERM received"),
-        _ = quit.recv() => println!("SIGQUIT received"),
-        _ = hangup.recv() => println!("SIGHUP received"),
-    }
-
-    println!("Shutting down...");
-
-    send_command(&glib_sender, Command::Stop).await;
-
-    println!("Quit.");
+    HttpServer::new(move || {
+        App::new()
+            .app_data(Data::new(glib_sender.clone()))
+            .wrap(middleware::Logger::default())
+            .service(resource("/").to(usage))
+            .service(resource("/check-connectivity").to(check_connectivity))
+            .service(resource("/list-connections").to(list_connections))
+            .service(resource("/list-wifi-networks").to(list_wifi_networks))
+            .service(resource("/stop").to(stop))
+            .service(resource("/scan").to(scan))
+    })
+    .bind(("127.0.0.1", 3000))
+    .unwrap()
+    .run()
+    .await
+    .unwrap();
 }
 
 async fn usage() -> &'static str {
     "Use /check-connectivity or /list-connections\n"
 }
 
-async fn check_connectivity(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, Command::CheckConnectivity)
+async fn check_connectivity(sender: Data<Sender>) -> HttpResponse {
+    send_command(sender.get_ref(), Command::CheckConnectivity)
         .await
-        .into_response()
+        .into()
 }
 
-async fn list_connections(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, Command::ListConnections)
+async fn list_connections(sender: Data<Sender>) -> HttpResponse {
+    send_command(sender.get_ref(), Command::ListConnections)
         .await
-        .into_response()
+        .into()
 }
 
-async fn list_wifi_networks(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, Command::ListWiFiNetworks)
+async fn list_wifi_networks(sender: Data<Sender>) -> HttpResponse {
+    send_command(sender.get_ref(), Command::ListWiFiNetworks)
         .await
-        .into_response()
+        .into()
 }
 
-async fn shutdown(mut state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    let response = send_command(&state.0.glib_sender, Command::Shutdown)
-        .await
-        .into_response();
-
-    issue_shutdwon(&mut state.0).await;
-
-    response
+async fn stop(sender: Data<Sender>) -> HttpResponse {
+    send_command(sender.get_ref(), Command::Stop).await.into()
 }
 
-async fn stop(state: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
-    send_command(&state.0.glib_sender, Command::Stop)
-        .await
-        .into_response()
-}
-
-async fn scan(_: extract::Extension<Arc<MainState>>) -> impl IntoResponse {
+async fn scan() -> HttpResponse {
     let stations = nl80211::scan::scan("wlan0").await.unwrap();
-    (StatusCode::OK, Json(stations)).into_response()
-}
-
-async fn issue_shutdwon(state: &mut Arc<MainState>) {
-    if let Some(shutdown_tx) = state.shutdown_opt.lock().unwrap().take() {
-        shutdown_tx.send(()).ok();
-    }
+    HttpResponse::Ok().json(stations)
 }
 
 async fn send_command(glib_sender: &glib::Sender<CommandRequest>, command: Command) -> AppResponse {
@@ -147,7 +87,6 @@ async fn send_command(glib_sender: &glib::Sender<CommandRequest>, command: Comma
         Command::CheckConnectivity => "check connectivity",
         Command::ListConnections => "list actions",
         Command::ListWiFiNetworks => "list WiFi networks",
-        Command::Shutdown => "shutdown",
         Command::Stop => "stop",
     };
 
@@ -182,28 +121,23 @@ impl From<Result<CommandResponce>> for AppResponse {
     }
 }
 
-impl IntoResponse for AppResponse {
-    fn into_response(self) -> Response {
+impl Into<HttpResponse> for AppResponse {
+    fn into(self) -> HttpResponse {
         match self {
             AppResponse::Error(err) => {
                 let errors: Vec<String> = err.chain().map(|e| format!("{}", e)).collect();
                 let app_errors = AppErrors::new(errors);
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(app_errors)).into_response()
+                HttpResponse::InternalServerError().json(app_errors)
             }
             AppResponse::Network(network_response) => match network_response {
                 CommandResponce::ListConnections(connections) => {
-                    (StatusCode::OK, Json(connections)).into_response()
+                    HttpResponse::Ok().json(connections)
                 }
                 CommandResponce::CheckConnectivity(connectivity) => {
-                    (StatusCode::OK, Json(connectivity)).into_response()
+                    HttpResponse::Ok().json(connectivity)
                 }
-                CommandResponce::ListWiFiNetworks(networks) => {
-                    (StatusCode::OK, Json(networks)).into_response()
-                }
-                CommandResponce::Shutdown(shutdown) => {
-                    (StatusCode::OK, Json(shutdown)).into_response()
-                }
-                CommandResponce::Stop(stop) => (StatusCode::OK, Json(stop)).into_response(),
+                CommandResponce::ListWiFiNetworks(networks) => HttpResponse::Ok().json(networks),
+                CommandResponce::Stop(stop) => HttpResponse::Ok().json(stop),
             },
         }
     }
