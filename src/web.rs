@@ -28,7 +28,7 @@ impl AppErrors {
 
 type Sender = glib::Sender<CommandRequest>;
 
-pub async fn run_web_loop(glib_sender: Sender) {
+pub async fn run_web_loop(glib_sender: Sender) -> Result<()> {
     println!("Web server starting...");
 
     HttpServer::new(move || {
@@ -43,10 +43,10 @@ pub async fn run_web_loop(glib_sender: Sender) {
             .service(resource("/scan").to(scan))
     })
     .bind(("127.0.0.1", 3000))
-    .unwrap()
+    .context("Failed to bind listening socket")?
     .run()
     .await
-    .unwrap();
+    .context("Failed to run HTTP server")
 }
 
 async fn usage() -> &'static str {

@@ -56,9 +56,7 @@ async fn main() -> Result<()> {
 
     receive_network_initialized(initialized_receiver).await?;
 
-    run_web_loop(glib_sender).await;
-
-    Ok(())
+    run_web_loop(glib_sender).await
 }
 
 async fn receive_network_initialized(
