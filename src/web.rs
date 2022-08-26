@@ -35,7 +35,7 @@ pub async fn run_web_loop(glib_sender: Sender) -> Result<()> {
         App::new()
             .app_data(Data::new(glib_sender.clone()))
             .wrap(middleware::Logger::default())
-            .service(resource("/").to(usage))
+            .service(resource("/").to(index))
             .service(resource("/check-connectivity").to(check_connectivity))
             .service(resource("/list-connections").to(list_connections))
             .service(resource("/list-wifi-networks").to(list_wifi_networks))
@@ -49,8 +49,9 @@ pub async fn run_web_loop(glib_sender: Sender) -> Result<()> {
     .context("Failed to run HTTP server")
 }
 
-async fn usage() -> &'static str {
-    "Use /check-connectivity or /list-connections\n"
+#[allow(clippy::unused_async)]
+async fn index() -> &'static str {
+    "WiFi Connect"
 }
 
 async fn check_connectivity(sender: Data<Sender>) -> HttpResponse {
