@@ -99,7 +99,7 @@ async fn send_command(glib_sender: &glib::Sender<CommandRequest>, command: Comma
 
     glib_sender
         .send(CommandRequest::new(responder, command))
-        .unwrap();
+        .expect("Failed to send command request");
 
     receive_network_thread_response(receiver, action)
         .await
