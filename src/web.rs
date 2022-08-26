@@ -128,19 +128,15 @@ impl From<Result<CommandResponce>> for AppResponse {
     }
 }
 
-impl Into<HttpResponse> for AppResponse {
-    fn into(self) -> HttpResponse {
-        match self {
+impl From<AppResponse> for HttpResponse {
+    fn from(response: AppResponse) -> Self {
+        match response {
             AppResponse::Error(err) => to_http_error_response(&err),
             AppResponse::Network(network_response) => match network_response {
-                CommandResponce::ListConnections(connections) => {
-                    HttpResponse::Ok().json(connections)
-                }
-                CommandResponce::CheckConnectivity(connectivity) => {
-                    HttpResponse::Ok().json(connectivity)
-                }
-                CommandResponce::ListWiFiNetworks(networks) => HttpResponse::Ok().json(networks),
-                CommandResponce::Stop(stop) => HttpResponse::Ok().json(stop),
+                CommandResponce::ListConnections(connections) => Self::Ok().json(connections),
+                CommandResponce::CheckConnectivity(connectivity) => Self::Ok().json(connectivity),
+                CommandResponce::ListWiFiNetworks(networks) => Self::Ok().json(networks),
+                CommandResponce::Stop(stop) => Self::Ok().json(stop),
             },
         }
     }
