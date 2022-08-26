@@ -10,6 +10,7 @@ use serde::Serialize;
 use crate::network::{Command, CommandRequest, CommandResponce};
 use crate::nl80211;
 
+#[derive(Debug)]
 pub enum AppResponse {
     Network(CommandResponce),
     Error(anyhow::Error),

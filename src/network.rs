@@ -45,6 +45,7 @@ impl CommandRequest {
     }
 }
 
+#[derive(Debug)]
 pub enum CommandResponce {
     CheckConnectivity(Connectivity),
     ListConnections(Vec<ConnectionDetails>),
@@ -52,7 +53,7 @@ pub enum CommandResponce {
     Stop(Stop),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct Connectivity {
     pub connectivity: String,
 }
@@ -63,7 +64,7 @@ impl Connectivity {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ConnectionDetails {
     pub id: String,
     pub uuid: String,
@@ -99,7 +100,7 @@ impl TryFrom<&AccessPoint> for Station {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct Stop {
     pub stop: &'static str,
 }
