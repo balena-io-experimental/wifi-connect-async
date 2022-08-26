@@ -76,8 +76,14 @@ async fn stop(sender: Data<Sender>) -> HttpResponse {
 }
 
 async fn scan() -> HttpResponse {
-    let stations = nl80211::scan::scan("wlan0").await.unwrap();
-    HttpResponse::Ok().json(stations)
+    let scan_result = nl80211::scan::scan("wlan0")
+        .await
+        .context("Failed to scan for networks");
+
+    match scan_result {
+        Ok(stations) => HttpResponse::Ok().json(stations),
+        Err(err) => to_http_error_response(&err),
+    }
 }
 
 async fn send_command(glib_sender: &glib::Sender<CommandRequest>, command: Command) -> AppResponse {
@@ -124,11 +130,7 @@ impl From<Result<CommandResponce>> for AppResponse {
 impl Into<HttpResponse> for AppResponse {
     fn into(self) -> HttpResponse {
         match self {
-            AppResponse::Error(err) => {
-                let errors: Vec<String> = err.chain().map(|e| format!("{}", e)).collect();
-                let app_errors = AppErrors::new(errors);
-                HttpResponse::InternalServerError().json(app_errors)
-            }
+            AppResponse::Error(err) => to_http_error_response(&err),
             AppResponse::Network(network_response) => match network_response {
                 CommandResponce::ListConnections(connections) => {
                     HttpResponse::Ok().json(connections)
@@ -141,4 +143,10 @@ impl Into<HttpResponse> for AppResponse {
             },
         }
     }
+}
+
+fn to_http_error_response(err: &anyhow::Error) -> HttpResponse {
+    let errors: Vec<String> = err.chain().map(|e| format!("{}", e)).collect();
+    let app_errors = AppErrors::new(errors);
+    HttpResponse::InternalServerError().json(app_errors)
 }
