@@ -7,12 +7,12 @@ use tokio::sync::oneshot;
 
 use serde::Serialize;
 
-use crate::network::{Command, CommandRequest, CommandResponce};
+use crate::network::{Command, CommandRequest, CommandResponse};
 use crate::nl80211;
 
 #[derive(Debug)]
 pub enum AppResponse {
-    Network(CommandResponce),
+    Network(CommandResponse),
     Error(anyhow::Error),
 }
 
@@ -108,9 +108,9 @@ async fn send_command(glib_sender: &glib::Sender<CommandRequest>, command: Comma
 }
 
 async fn receive_network_thread_response(
-    receiver: oneshot::Receiver<Result<CommandResponce>>,
+    receiver: oneshot::Receiver<Result<CommandResponse>>,
     action: &str,
-) -> Result<CommandResponce> {
+) -> Result<CommandResponse> {
     let result = receiver
         .await
         .context("Failed to receive network thread response");
@@ -120,8 +120,8 @@ async fn receive_network_thread_response(
         .or_else(|e| Err(e).context(format!("Failed to {}", action)))
 }
 
-impl From<Result<CommandResponce>> for AppResponse {
-    fn from(result: Result<CommandResponce>) -> Self {
+impl From<Result<CommandResponse>> for AppResponse {
+    fn from(result: Result<CommandResponse>) -> Self {
         match result {
             Ok(network_response) => Self::Network(network_response),
             Err(err) => Self::Error(err),
@@ -134,10 +134,10 @@ impl From<AppResponse> for HttpResponse {
         match response {
             AppResponse::Error(err) => to_http_error_response(&err),
             AppResponse::Network(network_response) => match network_response {
-                CommandResponce::ListConnections(connections) => Self::Ok().json(connections),
-                CommandResponce::CheckConnectivity(connectivity) => Self::Ok().json(connectivity),
-                CommandResponce::ListWiFiNetworks(networks) => Self::Ok().json(networks),
-                CommandResponce::Stop(stop) => Self::Ok().json(stop),
+                CommandResponse::ListConnections(connections) => Self::Ok().json(connections),
+                CommandResponse::CheckConnectivity(connectivity) => Self::Ok().json(connectivity),
+                CommandResponse::ListWiFiNetworks(networks) => Self::Ok().json(networks),
+                CommandResponse::Stop(stop) => Self::Ok().json(stop),
             },
         }
     }

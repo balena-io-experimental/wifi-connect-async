@@ -24,7 +24,7 @@ use nm::{
 
 const WIFI_SCAN_TIMEOUT_SECONDS: usize = 45;
 
-type TokioResponder = oneshot::Sender<Result<CommandResponce>>;
+type TokioResponder = oneshot::Sender<Result<CommandResponse>>;
 
 #[derive(Debug)]
 pub enum Command {
@@ -46,7 +46,7 @@ impl CommandRequest {
 }
 
 #[derive(Debug)]
-pub enum CommandResponce {
+pub enum CommandResponse {
     CheckConnectivity(Connectivity),
     ListConnections(Vec<ConnectionDetails>),
     ListWiFiNetworks(Vec<Station>),
@@ -230,7 +230,7 @@ async fn init_network(opts: Opts) -> Result<NetworkState> {
 
 fn spawn(
     responder: TokioResponder,
-    command_future: impl Future<Output = Result<CommandResponce>> + 'static,
+    command_future: impl Future<Output = Result<CommandResponse>> + 'static,
 ) {
     let context = MainContext::ref_thread_default();
     context.spawn_local(execute_and_respond(responder, command_future));
@@ -238,28 +238,28 @@ fn spawn(
 
 async fn execute_and_respond(
     responder: TokioResponder,
-    command_future: impl Future<Output = Result<CommandResponce>>,
+    command_future: impl Future<Output = Result<CommandResponse>>,
 ) {
     let result = command_future.await;
     respond(responder, result);
 }
 
-fn respond(responder: TokioResponder, response: Result<CommandResponce>) {
+fn respond(responder: TokioResponder, response: Result<CommandResponse>) {
     let _res = responder.send(response);
 }
 
-async fn check_connectivity(client: Client) -> Result<CommandResponce> {
+async fn check_connectivity(client: Client) -> Result<CommandResponse> {
     let connectivity = client
         .check_connectivity_future()
         .await
         .context("Failed to execute check connectivity")?;
 
-    Ok(CommandResponce::CheckConnectivity(Connectivity::new(
+    Ok(CommandResponse::CheckConnectivity(Connectivity::new(
         connectivity.to_string(),
     )))
 }
 
-fn list_connections(client: &Client) -> CommandResponce {
+fn list_connections(client: &Client) -> CommandResponse {
     let all_connections: Vec<_> = client
         .connections()
         .into_iter()
@@ -278,22 +278,22 @@ fn list_connections(client: &Client) -> CommandResponce {
         }
     }
 
-    CommandResponce::ListConnections(connections)
+    CommandResponse::ListConnections(connections)
 }
 
-const fn list_wifi_networks(stations: Vec<Station>) -> CommandResponce {
-    CommandResponce::ListWiFiNetworks(stations)
+const fn list_wifi_networks(stations: Vec<Station>) -> CommandResponse {
+    CommandResponse::ListWiFiNetworks(stations)
 }
 
 async fn stop(
     client: Client,
     portal_connection: Option<ActiveConnection>,
-) -> Result<CommandResponce> {
+) -> Result<CommandResponse> {
     if let Some(active_connection) = portal_connection {
         stop_portal(&client, &active_connection).await?;
     }
 
-    Ok(CommandResponce::Stop(Stop::new("ok")))
+    Ok(CommandResponse::Stop(Stop::new("ok")))
 }
 
 async fn scan_wifi(device: &DeviceWifi) -> Result<()> {
