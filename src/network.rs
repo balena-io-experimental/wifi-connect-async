@@ -102,12 +102,14 @@ impl TryFrom<&AccessPoint> for Station {
 
 #[derive(Serialize, Debug)]
 pub struct Stop {
-    pub stop: &'static str,
+    pub stop: String,
 }
 
 impl Stop {
-    const fn new(stop: &'static str) -> Self {
-        Self { stop }
+    fn new(status: &str) -> Self {
+        Self {
+            stop: status.to_owned(),
+        }
     }
 }
 
