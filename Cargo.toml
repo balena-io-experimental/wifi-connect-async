@@ -15,6 +15,7 @@ libc = "0.2"
 anyhow = "1"
 clap = { version = "3", features = ["derive"] }
 actix-web = "4"
+actix-http = "3"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 neli = { version = "0.6", features = ["async"] }

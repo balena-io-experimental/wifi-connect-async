@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 
+use actix_http::body::BoxBody;
 use actix_web::web::{resource, Data};
-use actix_web::{middleware, App, HttpResponse, HttpServer};
+use actix_web::{middleware, App, HttpRequest, HttpResponse, HttpServer, Responder};
 
 use tokio::sync::oneshot;
 
@@ -55,26 +56,20 @@ async fn index() -> &'static str {
     "WiFi Connect"
 }
 
-async fn check_connectivity(sender: Data<Sender>) -> HttpResponse {
-    send_command(sender.get_ref(), Command::CheckConnectivity)
-        .await
-        .into()
+async fn check_connectivity(sender: Data<Sender>) -> impl Responder {
+    send_command(sender.get_ref(), Command::CheckConnectivity).await
 }
 
-async fn list_connections(sender: Data<Sender>) -> HttpResponse {
-    send_command(sender.get_ref(), Command::ListConnections)
-        .await
-        .into()
+async fn list_connections(sender: Data<Sender>) -> impl Responder {
+    send_command(sender.get_ref(), Command::ListConnections).await
 }
 
-async fn list_wifi_networks(sender: Data<Sender>) -> HttpResponse {
-    send_command(sender.get_ref(), Command::ListWiFiNetworks)
-        .await
-        .into()
+async fn list_wifi_networks(sender: Data<Sender>) -> impl Responder {
+    send_command(sender.get_ref(), Command::ListWiFiNetworks).await
 }
 
-async fn stop(sender: Data<Sender>) -> HttpResponse {
-    send_command(sender.get_ref(), Command::Stop).await.into()
+async fn stop(sender: Data<Sender>) -> impl Responder {
+    send_command(sender.get_ref(), Command::Stop).await
 }
 
 async fn scan() -> HttpResponse {
@@ -129,15 +124,21 @@ impl From<Result<CommandResponse>> for AppResponse {
     }
 }
 
-impl From<AppResponse> for HttpResponse {
-    fn from(response: AppResponse) -> Self {
-        match response {
+impl Responder for AppResponse {
+    type Body = BoxBody;
+
+    fn respond_to(self, _: &HttpRequest) -> HttpResponse<Self::Body> {
+        match self {
             AppResponse::Error(err) => to_http_error_response(&err),
             AppResponse::Network(network_response) => match network_response {
-                CommandResponse::ListConnections(connections) => Self::Ok().json(connections),
-                CommandResponse::CheckConnectivity(connectivity) => Self::Ok().json(connectivity),
-                CommandResponse::ListWiFiNetworks(networks) => Self::Ok().json(networks),
-                CommandResponse::Stop(stop) => Self::Ok().json(stop),
+                CommandResponse::ListConnections(connections) => {
+                    HttpResponse::Ok().json(connections)
+                }
+                CommandResponse::CheckConnectivity(connectivity) => {
+                    HttpResponse::Ok().json(connectivity)
+                }
+                CommandResponse::ListWiFiNetworks(networks) => HttpResponse::Ok().json(networks),
+                CommandResponse::Stop(stop) => HttpResponse::Ok().json(stop),
             },
         }
     }
