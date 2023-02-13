@@ -2,7 +2,8 @@
     clippy::use_self,
     clippy::wildcard_imports,
     clippy::cast_possible_truncation,
-    clippy::as_conversions
+    clippy::as_conversions,
+    clippy::std_instead_of_core
 )]
 
 use neli::neli_enum;

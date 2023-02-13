@@ -5,10 +5,10 @@ use tokio::sync::oneshot;
 use glib::translate::FromGlib;
 use glib::{MainContext, MainLoop};
 
-use std::cell::RefCell;
+use alloc::rc::Rc;
+use core::cell::RefCell;
+use core::future::Future;
 use std::collections::HashSet;
-use std::future::Future;
-use std::rc::Rc;
 
 use serde::Serialize;
 
@@ -342,7 +342,7 @@ fn get_nearby_stations(device: &DeviceWifi) -> Vec<Station> {
 
 fn ssid_to_str(ssid: Option<&[u8]>) -> Option<&str> {
     // An access point SSID could be random bytes and not a UTF-8 encoded string
-    std::str::from_utf8(ssid.as_ref()?).ok()
+    core::str::from_utf8(ssid.as_ref()?).ok()
 }
 
 async fn create_client() -> Result<Client> {

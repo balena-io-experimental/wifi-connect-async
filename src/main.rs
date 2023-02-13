@@ -26,6 +26,8 @@
     clippy::blanket_clippy_restriction_lints
 )]
 
+extern crate alloc;
+
 mod network;
 mod nl80211;
 mod opts;
