@@ -23,7 +23,9 @@
     clippy::wildcard_enum_match_arm,
     clippy::float_arithmetic,
     clippy::separated_literal_suffix,
-    clippy::blanket_clippy_restriction_lints
+    clippy::blanket_clippy_restriction_lints,
+    clippy::print_stdout,
+    clippy::use_debug
 )]
 
 extern crate alloc;

@@ -124,6 +124,7 @@ impl From<Result<CommandResponse>> for AppResponse {
     }
 }
 
+#[allow(clippy::missing_trait_methods)]
 impl Responder for AppResponse {
     type Body = BoxBody;
 
