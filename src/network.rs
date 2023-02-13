@@ -454,7 +454,7 @@ async fn create_portal(
     )?;
 
     let active_connection = client
-        .add_and_activate_connection_future(Some(&connection), device, None)
+        .add_and_activate_connection_future(Some(&connection), Some(device), None)
         .await
         .context("Failed to add and activate connection")?;
 
@@ -537,32 +537,32 @@ fn create_ap_connection(
     let connection = SimpleConnection::new();
 
     let s_connection = SettingConnection::new();
-    s_connection.set_type(Some(&SETTING_WIRELESS_SETTING_NAME));
+    s_connection.set_type(Some(SETTING_WIRELESS_SETTING_NAME));
     s_connection.set_id(Some(ssid));
     s_connection.set_autoconnect(false);
     s_connection.set_interface_name(Some(interface));
-    connection.add_setting(&s_connection);
+    connection.add_setting(s_connection);
 
     let s_wireless = SettingWireless::new();
     s_wireless.set_ssid(Some(&(ssid.as_bytes().into())));
     s_wireless.set_band(Some("bg"));
     s_wireless.set_hidden(false);
-    s_wireless.set_mode(Some(&SETTING_WIRELESS_MODE_AP));
-    connection.add_setting(&s_wireless);
+    s_wireless.set_mode(Some(SETTING_WIRELESS_MODE_AP));
+    connection.add_setting(s_wireless);
 
     if let Some(password) = passphrase {
         let s_wireless_security = SettingWirelessSecurity::new();
         s_wireless_security.set_key_mgmt(Some("wpa-psk"));
         s_wireless_security.set_psk(Some(password));
-        connection.add_setting(&s_wireless_security);
+        connection.add_setting(s_wireless_security);
     }
 
     let s_ip4 = SettingIP4Config::new();
     let ip_address =
         IPAddress::new(libc::AF_INET, address, 24).context("Failed to parse gateway address")?;
     s_ip4.add_address(&ip_address);
-    s_ip4.set_method(Some(&SETTING_IP4_CONFIG_METHOD_MANUAL));
-    connection.add_setting(&s_ip4);
+    s_ip4.set_method(Some(SETTING_IP4_CONFIG_METHOD_MANUAL));
+    connection.add_setting(s_ip4);
 
     Ok(connection)
 }
