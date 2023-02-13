@@ -112,7 +112,7 @@ async fn receive_network_thread_response(
 
     result
         .and_then(|r| r)
-        .or_else(|e| Err(e).context(format!("Failed to {}", action)))
+        .or_else(|e| Err(e).context(format!("Failed to {action}")))
 }
 
 impl From<Result<CommandResponse>> for AppResponse {
@@ -129,8 +129,8 @@ impl Responder for AppResponse {
 
     fn respond_to(self, _: &HttpRequest) -> HttpResponse<Self::Body> {
         match self {
-            AppResponse::Error(err) => to_http_error_response(&err),
-            AppResponse::Network(network_response) => match network_response {
+            Self::Error(err) => to_http_error_response(&err),
+            Self::Network(network_response) => match network_response {
                 CommandResponse::ListConnections(connections) => {
                     HttpResponse::Ok().json(connections)
                 }
@@ -145,7 +145,7 @@ impl Responder for AppResponse {
 }
 
 fn to_http_error_response(err: &anyhow::Error) -> HttpResponse {
-    let errors: Vec<String> = err.chain().map(|e| format!("{}", e)).collect();
+    let errors: Vec<String> = err.chain().map(|e| format!("{e}")).collect();
     let app_errors = AppErrors::new(errors);
     HttpResponse::InternalServerError().json(app_errors)
 }

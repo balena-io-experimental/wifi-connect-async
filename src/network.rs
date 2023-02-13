@@ -208,7 +208,7 @@ async fn init_network(opts: Opts) -> Result<NetworkState> {
 
     let interface = get_wifi_device_interface(&device);
 
-    println!("Interface: {}", interface);
+    println!("Interface: {interface}");
 
     scan_wifi(&device).await?;
 
@@ -364,8 +364,7 @@ async fn delete_exising_wifi_connect_ap_profile(client: &Client, ssid: &str) -> 
         let c = connection.clone().upcast::<Connection>();
         if is_access_point_connection(&c) && is_same_ssid(&c, ssid) {
             println!(
-                "Deleting already created by WiFi Connect access point connection profile: {:?}",
-                ssid,
+                "Deleting already created by WiFi Connect access point connection profile: {ssid:?}",
             );
             connection.delete_future().await?;
         }
@@ -417,7 +416,7 @@ pub fn find_device(client: &Client, interface: Option<&str>) -> Result<DeviceWif
 fn get_exact_device(client: &Client, interface: &str) -> Result<DeviceWifi> {
     let device = client
         .device_by_iface(interface)
-        .context(format!("Failed to find interface '{}'", interface))?;
+        .context(format!("Failed to find interface '{interface}'"))?;
 
     if device.device_type() != DeviceType::Wifi {
         bail!("Not a WiFi interface '{}'", interface);
@@ -506,7 +505,7 @@ async fn finalize_active_connection_state(
                 state_u32.try_into().expect("Unknown connection state"),
             )
         };
-        println!("Connection: {:?}", state);
+        println!("Connection: {state:?}");
 
         let exit = match state {
             ActiveConnectionState::Activated => Some(ActiveConnectionState::Activated),
